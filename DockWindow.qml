@@ -144,13 +144,18 @@ PanelWindow {
     dockWindow.draggingId = ""
   }
 
-  // A transparent layer over a pill that turns a horizontal drag into a move.
-  // Clicks and hovers pass through to the pill; the drag only takes over once
-  // the pointer has moved past the drag threshold.
-  component IslandDrag: Item {
+  // A transparent layer over a pill that turns a horizontal left-button drag
+  // into a move. It has to own the press to see the drag, so a press that
+  // never moves past the drag threshold is handed on as a click: to the
+  // deepest item under the pointer that defines leftClick(). Right and middle
+  // buttons, hover and the wheel go straight to the pill underneath.
+  component IslandDrag: MouseArea {
     id: dragLayer
     required property Item island
     required property string islandId
+
+    property real pressSceneX: 0
+    property bool dragging: false
 
     x: island.x
     y: island.y
@@ -158,24 +163,63 @@ PanelWindow {
     height: island.height
     visible: island.visible
     z: 50
+    acceptedButtons: Qt.LeftButton
+    hoverEnabled: false
+    preventStealing: true
+    cursorShape: dragging ? Qt.ClosedHandCursor : undefined
 
-    DragHandler {
-      target: null
-      yAxis.enabled: false
-      cursorShape: active ? Qt.ClosedHandCursor : Qt.ArrowCursor
-      onActiveChanged: {
-        if (active) {
-          dockWindow.hideTooltip(dockWindow.tooltipTarget)
-          dockWindow.dragStartX = dragLayer.island.x
-          dockWindow.dragX = dragLayer.island.x
-          dockWindow.draggingId = dragLayer.islandId
-        } else if (dockWindow.draggingId === dragLayer.islandId) {
-          dockWindow.dropIsland(dragLayer.islandId)
-        }
+    function sceneX(mouse) { return dragLayer.mapToItem(null, mouse.x, mouse.y).x }
+
+    // Deepest item under (x, y) inside the pill that handles a left click.
+    function clickTargetAt(x, y) {
+      var found = null
+      var item = dragLayer.island
+      var px = x, py = y
+      while (item) {
+        var child = item.childAt(px, py)
+        if (!child) break
+        var p = item.mapToItem(child, px, py)
+        px = p.x
+        py = p.y
+        item = child
+        if (child.enabled && typeof child.leftClick === "function") found = child
       }
-      // Scene coordinates: the layer moves with the pill, so local ones would feed back.
-      onCentroidChanged: if (active) dockWindow.dragX = dockWindow.dragStartX + centroid.scenePosition.x - centroid.scenePressPosition.x
+      return found
     }
+
+    onPressed: function(mouse) {
+      dragLayer.pressSceneX = dragLayer.sceneX(mouse)
+      dragLayer.dragging = false
+    }
+
+    onPositionChanged: function(mouse) {
+      var x = dragLayer.sceneX(mouse)
+      if (!dragLayer.dragging && Math.abs(x - dragLayer.pressSceneX) >= Qt.styleHints.startDragDistance) {
+        dragLayer.dragging = true
+        dockWindow.hideTooltip(dockWindow.tooltipTarget)
+        dockWindow.dragStartX = dragLayer.island.x
+        dockWindow.dragX = dragLayer.island.x
+        dockWindow.draggingId = dragLayer.islandId
+      }
+      if (dragLayer.dragging) dockWindow.dragX = dockWindow.dragStartX + x - dragLayer.pressSceneX
+    }
+
+    onReleased: function(mouse) {
+      if (dragLayer.dragging) {
+        dragLayer.dragging = false
+        dockWindow.dropIsland(dragLayer.islandId)
+        return
+      }
+      var target = dragLayer.clickTargetAt(mouse.x, mouse.y)
+      if (target) target.leftClick()
+    }
+
+    onCanceled: {
+      if (dragLayer.dragging && dockWindow.draggingId === dragLayer.islandId) dockWindow.draggingId = ""
+      dragLayer.dragging = false
+    }
+
+    onWheel: function(wheel) { wheel.accepted = false }
   }
 
   BorderSurface {

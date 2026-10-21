@@ -31,9 +31,10 @@ BorderSurface {
   color: flat ? "transparent" : Color.bar.background
   borderSpec: flat ? Border.none() : Border.surfaceSpec("bar", "border", "transparent", 0)
 
-  // Spotify cannot raise itself over MPRIS, so find its window instead.
+  // Focus the player's window through Hyprland. Spotify on Linux claims it
+  // can raise itself over MPRIS but ignores the request, so MPRIS raise() is
+  // only the fallback for players without a window Hyprland knows.
   function focusPlayer() {
-    if (island.media.raise()) return
     var toplevels = Hyprland.toplevels.values
     var identity = island.media.identity.toLowerCase()
     for (var i = 0; i < toplevels.length; i++) {
@@ -45,6 +46,7 @@ BorderSurface {
         return
       }
     }
+    island.media.raise()
   }
 
   function trackTip() {
@@ -133,7 +135,8 @@ BorderSurface {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: island.focusPlayer()
+        function leftClick() { island.focusPlayer() }
+        onClicked: leftClick()
         onContainsMouseChanged: containsMouse ? island.dock.showTooltip(art, island.trackTip()) : island.dock.hideTooltip(art)
       }
     }
@@ -180,7 +183,8 @@ BorderSurface {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: island.focusPlayer()
+        function leftClick() { island.focusPlayer() }
+        onClicked: leftClick()
         onContainsMouseChanged: containsMouse ? island.dock.showTooltip(trackText, island.trackTip()) : island.dock.hideTooltip(trackText)
       }
     }
@@ -245,7 +249,8 @@ BorderSurface {
       hoverEnabled: true
       enabled: button.active
       cursorShape: Qt.PointingHandCursor
-      onClicked: button.activated()
+      function leftClick() { button.activated() }
+      onClicked: leftClick()
     }
   }
 }

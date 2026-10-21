@@ -50,9 +50,10 @@ BorderSurface {
   MouseArea {
     anchors.fill: parent
     acceptedButtons: Qt.LeftButton | Qt.RightButton
+    function leftClick() { island.limits.refresh() }
     onClicked: function(mouse) {
       if (mouse.button === Qt.RightButton) island.spaces.toggle()
-      else island.limits.refresh()
+      else leftClick()
     }
   }
 
@@ -97,10 +98,15 @@ BorderSurface {
           hoverEnabled: true
           acceptedButtons: Qt.LeftButton | Qt.RightButton
           cursorShape: Qt.PointingHandCursor
-          onClicked: function(mouse) {
+          function leftClick() {
             island.dock.hideTooltip(pair)
-            if (mouse.button === Qt.RightButton) island.spaces.toggle()
-            else island.limits.refresh()
+            island.limits.refresh()
+          }
+          onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+              island.dock.hideTooltip(pair)
+              island.spaces.toggle()
+            } else leftClick()
           }
           onContainsMouseChanged: {
             if (containsMouse) {

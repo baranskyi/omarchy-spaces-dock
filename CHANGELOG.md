@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- Fix: left clicks on the player, AI limits and stats pills did nothing since 0.5.0. The drag layer over each pill now owns the press and hands it on as a click when the pointer does not move past the drag threshold, so play, previous, next, the system panel and refreshing work again.
+- Clicking the cover or title focuses the player's window through Hyprland first. Spotify claims it can raise itself over MPRIS but ignores the request on Linux.
+
 ## 0.5.1
 
 - The player appears as soon as Spotify starts, not only once music plays. Until a track is picked it shows "Spotify" and a play button.

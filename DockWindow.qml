@@ -355,7 +355,7 @@ PanelWindow {
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         // Multi-line tooltips (stats details, AI limits) read as columns.
-        horizontalAlignment: lineCount > 1 ? Text.AlignLeft : Text.AlignHCenter
+        horizontalAlignment: dockWindow.tooltipText.indexOf("\n") !== -1 ? Text.AlignLeft : Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
       }
     }

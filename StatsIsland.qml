@@ -20,6 +20,9 @@ BorderSurface {
   readonly property var items: Model.enabledStats(cfg)
   readonly property bool shown: items.length > 0
   readonly property int inset: Math.max(0, Math.round((height - dm.pillThickness) / 2))
+  // Tighter than the workspace pills: stats are short, fixed-width values.
+  readonly property int pillPad: spaces.sp(6)
+  readonly property int pillGap: Math.max(inset, Math.round(dm.gap / 2))
 
   visible: shown
   width: shown ? row.implicitWidth + inset * 2 : 0
@@ -37,7 +40,7 @@ BorderSurface {
     anchors.left: parent.left
     anchors.leftMargin: island.inset
     anchors.verticalCenter: parent.verticalCenter
-    spacing: island.dm.gap
+    spacing: island.pillGap
 
     Repeater {
       model: island.items
@@ -48,7 +51,7 @@ BorderSurface {
         required property var modelData
         readonly property bool tooltipHovered: statMouse.containsMouse
 
-        width: statRow.implicitWidth + island.dm.pad * 2
+        width: statRow.implicitWidth + island.pillPad * 2
         height: island.dm.pillThickness
 
         Rectangle {
@@ -61,7 +64,7 @@ BorderSurface {
         Row {
           id: statRow
           anchors.centerIn: parent
-          spacing: island.spaces.sp(5)
+          spacing: island.spaces.sp(3)
 
           Text {
             anchors.verticalCenter: parent.verticalCenter

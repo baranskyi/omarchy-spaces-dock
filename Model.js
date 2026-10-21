@@ -31,6 +31,12 @@ var DEFAULTS = {
   statNetwork: false,
   statFans: false,
 
+  // AI subscription limits island, between the dock and the system stats
+  showLimits: true,
+  limitClaude: true,
+  limitCodex: true,
+  limitGrok: true,
+
   showIcons: true,            // master switch: app icons visible or hidden
   showApps: "hover",          // "all" | "active" | "hover" (active + hovered) | "hoverOnly"
   persistentWorkspaces: 5,    // workspaces 1..N are always shown
@@ -114,6 +120,10 @@ function resolveSettings(raw) {
     statStorage: bool(s.statStorage, d.statStorage),
     statNetwork: bool(s.statNetwork, d.statNetwork),
     statFans: bool(s.statFans, d.statFans),
+    showLimits: bool(s.showLimits, d.showLimits),
+    limitClaude: bool(s.limitClaude, d.limitClaude),
+    limitCodex: bool(s.limitCodex, d.limitCodex),
+    limitGrok: bool(s.limitGrok, d.limitGrok),
     showIcons: bool(s.showIcons, d.showIcons),
     showApps: oneOf(s.showApps, SHOW_APPS, d.showApps),
     persistentWorkspaces: clampInt(s.persistentWorkspaces, 0, 10, d.persistentWorkspaces),
@@ -459,6 +469,102 @@ function statDetail(key, state) {
   return ""
 }
 
+// ------------------------------------------------------------ AI limits
+
+// One pair of rings per provider: the outer ring is the short session window
+// (5-hour), the inner ring the weekly window.
+var LIMIT_PROVIDERS = [
+  { id: "claude", setting: "limitClaude", name: "Claude", letter: "C", color: "#d97757" },
+  { id: "codex", setting: "limitCodex", name: "OpenAI", letter: "O", color: "#10a37f" },
+  { id: "grok", setting: "limitGrok", name: "Grok", letter: "G", color: "#8b6cf0" }
+]
+
+function enabledLimitProviders(settings) {
+  var out = []
+  if (!settings || !settings.showLimits) return out
+  for (var i = 0; i < LIMIT_PROVIDERS.length; i++)
+    if (settings[LIMIT_PROVIDERS[i].setting] === true) out.push(LIMIT_PROVIDERS[i])
+  return out
+}
+
+// Value for llm_limits.py --providers; "" when the island is off.
+function limitsProvidersArg(settings) {
+  return enabledLimitProviders(settings).map(function(p) { return p.id }).join(",")
+}
+
+// Sorts a provider's windows into { session, weekly, extras } by label.
+// A window with its own title other than "Weekly" (Claude's per-model
+// "Fable Weekly") is an extra, shown in the tooltip only.
+function limitWindows(record) {
+  var out = { session: null, weekly: null, extras: [] }
+  var list = record && Array.isArray(record.limits) ? record.limits : []
+  for (var i = 0; i < list.length; i++) {
+    var w = list[i]
+    if (!w || !isNum(w.percent)) continue
+    var label = String(w.label || "")
+    var title = String(w.title || "")
+    var modelSpecific = title !== "" && !/^weekly$/i.test(title)
+    if (!modelSpecific && !out.session && /session|5[- ]?h(our)?/i.test(label)) out.session = w
+    else if (!modelSpecific && !out.weekly && /week|7[- ]?day/i.test(label)) out.weekly = w
+    else out.extras.push(w)
+  }
+  return out
+}
+
+// Keeps the last numbers when a refresh comes back empty, flagged stale.
+function mergeLimitRecord(previous, next) {
+  if (!next) return previous || null
+  var hasNew = Array.isArray(next.limits) && next.limits.length > 0
+  var hadOld = previous && Array.isArray(previous.limits) && previous.limits.length > 0
+  if (hasNew || !hadOld) return next
+  return {
+    available: true,
+    plan: next.plan || previous.plan,
+    status: next.status || previous.status,
+    stale: true,
+    updatedAt: previous.updatedAt,
+    limits: previous.limits
+  }
+}
+
+// "in 2h 27m", "in 6d 4h", "in 45m", "now"; "" without a date.
+function formatResetIn(iso, nowMs) {
+  var t = Date.parse(String(iso || ""))
+  if (!isFinite(t)) return ""
+  var minutes = Math.max(0, Math.round((t - nowMs) / 60000))
+  if (minutes <= 0) return "now"
+  var days = Math.floor(minutes / 1440)
+  var hours = Math.floor((minutes % 1440) / 60)
+  var mins = minutes % 60
+  if (days > 0) return "in " + days + "d " + hours + "h"
+  if (hours > 0) return "in " + hours + "h " + mins + "m"
+  return "in " + mins + "m"
+}
+
+function limitPercent(w) {
+  return w && isNum(w.percent) ? Math.round(w.percent * 100) + "%" : "—"
+}
+
+// Tooltip for one provider's rings.
+function limitTooltip(provider, record, nowMs) {
+  var name = provider.name + (record && record.plan ? " · " + record.plan : "")
+  if (!record) return name + "\nReading limits…"
+  var lines = [name]
+  var w = limitWindows(record)
+  function line(title, window) {
+    if (!window) return title + " —"
+    var reset = formatResetIn(window.resetsAt, nowMs)
+    return title + " " + limitPercent(window) + (reset ? " · resets " + reset : "")
+  }
+  lines.push(line("Session", w.session) + (w.session ? "" : " (no session limit)"))
+  lines.push(line("Weekly", w.weekly))
+  for (var i = 0; i < w.extras.length; i++)
+    lines.push(line(w.extras[i].title || w.extras[i].label, w.extras[i]))
+  if (record.status) lines.push(record.status)
+  else if (record.stale) lines.push("Showing the last known numbers")
+  return lines.join("\n")
+}
+
 // Hyprland reports addresses with or without the 0x prefix depending on source.
 function normalizeAddress(address) {
   return String(address || "").toLowerCase().replace(/^0x/, "")
@@ -740,6 +846,9 @@ if (typeof module !== "undefined") {
     formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,
     primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE,
+    LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
+    limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
+    formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,
     densityMetrics: densityMetrics, normalizeAddress: normalizeAddress,
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,

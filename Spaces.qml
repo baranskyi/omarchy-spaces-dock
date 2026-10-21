@@ -1352,6 +1352,21 @@ Panel {
 
           PanelSeparator { foreground: root.fg }
 
+          // ---- AI limits
+          SectionTitle { text: "AI LIMITS" }
+
+          ToggleSetting {
+            label: "Show AI limits"
+            description: "Outer ring: 5-hour session · inner ring: weekly"
+            key: "showLimits"
+          }
+
+          ToggleSetting { visible: root.cfg.showLimits; label: "Claude"; key: "limitClaude" }
+          ToggleSetting { visible: root.cfg.showLimits; label: "OpenAI"; description: "Codex and ChatGPT"; key: "limitCodex" }
+          ToggleSetting { visible: root.cfg.showLimits; label: "Grok"; key: "limitGrok" }
+
+          PanelSeparator { foreground: root.fg }
+
           // ---- System stats
           SectionTitle { text: "SYSTEM" }
 

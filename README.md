@@ -11,9 +11,10 @@ Everything Spaces does works here too:
 - Scrolling switches workspaces, and middle-click can close a window.
 - Right-click the dock to open its settings.
 
-Two islands sit beside the dock as separate pills:
+Three islands sit beside the dock as separate pills:
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Click the cover or title to jump to the player's window. It hides when nothing is playing.
+- **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh.
 - **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it for the system panel, right-click it to open btop.
 
 A stat pill has no colour while things are normal. It turns yellow under heavy load or heat and red at the extreme:
@@ -92,7 +93,26 @@ Player and system stats:
 | `statCpu`, `statMemory`, `statTemperature` | bool | `true` |
 | `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
 
-In full-width mode the player and stats sit at the two ends of the strip.
+AI limits:
+
+| Key | Values | Default |
+|---|---|---|
+| `showLimits` | bool | `true` |
+| `limitClaude`, `limitCodex`, `limitGrok` | bool | `true` |
+
+In full-width mode the player sits at the left end of the strip, the limits and stats at the right end.
+
+### Where the AI limits come from
+
+`llm_limits.py` runs one collector per provider every five minutes and passes the dock only percentages, reset times, the plan name and a status message:
+
+| Provider | Collector |
+|---|---|
+| Claude | `omarchy-agent-usage-claude`, part of Omarchy |
+| OpenAI | `omarchy-agent-usage-codex`, part of Omarchy |
+| Grok | `collectors/grok-usage`, bundled with the dock |
+
+The collectors use the sign-ins of Claude Code, the Codex CLI and the Grok CLI already on the machine, and ask each provider's usage endpoint. A provider you are not signed in to simply does not appear. Codex and Grok currently report a weekly window only, so their outer ring stays empty. If a refresh fails, the dock keeps the last numbers and dims the rings.
 
 The stats come from `stats.py`, a small Python script that prints a snapshot every two seconds and only collects the metrics that are on. With the GPU metric on, an NVIDIA card is only queried while it is already awake, so the dock never keeps a hybrid laptop's discrete GPU from sleeping.
 
@@ -139,6 +159,7 @@ omarchy-shell io.github.baranskyi.spaces-dock toggle
 | `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
 | `playPause`, `next`, `previous` | Control the player shown on the dock |
 | `system` | Toggle the system panel on the focused monitor's dock |
+| `refreshLimits` | Fetch the AI limits now |
 | `agent <session> <state> <pids>` | Used by the agent hook below |
 
 ## Agent badges
@@ -168,6 +189,11 @@ DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tool
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
 PlayerIsland.qml     now-playing pill left of the dock
 StatsIsland.qml      system stats pills right of the dock, coloured by load
+LimitsIsland.qml     AI limits pill between the dock and the stats
+LimitRings.qml       a provider's two concentric rings
+Limits.qml           runs llm_limits.py every five minutes, keeps the last good numbers
+llm_limits.py        runs the usage collectors in parallel, standard library only
+collectors/grok-usage  Grok usage collector
 SystemPanel.qml      system panel above the stats, forked from System Monitor
 SysMetrics.qml/.js   its /proc sampler and two-minute history
 Sparkline.qml        its charts
@@ -176,7 +202,7 @@ Media.qml            picks the MPRIS player to show
 Stats.qml            runs stats.py and keeps its latest snapshot
 stats.py             system stats collector, Python standard library only
 Model.js             pure helpers: settings, dock metrics, player choice, stat formatting
-tests/model.test.js  node tests for Model.js, including a real stats.py run
+tests/model.test.js  node tests for Model.js, including real stats.py and llm_limits.py runs
 tests/sysmetrics.test.js, tests/discovery.test.sh
                      the System Monitor tests, adapted
 hooks/claude-hook    agent status hook

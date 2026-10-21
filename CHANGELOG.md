@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- An AI limits island between the dock and the system stats: two concentric rings each for Claude, OpenAI and Grok, outer for the 5-hour session, inner for the week. Tooltips show percentages and reset times; click refreshes.
+- `llm_limits.py` runs Omarchy's Claude and Codex usage collectors and a bundled Grok collector every five minutes, with one retry, and the dock keeps the last good numbers when a refresh fails.
+- Settings: `showLimits`, `limitClaude`, `limitCodex`, `limitGrok`. IPC: `refreshLimits`.
+
 ## 0.3.2
 
 - Removed the last links to the Spaces bar widget: the `copyBarSettings` IPC call and the hook's extra notification. The dock depends on no other plugin.

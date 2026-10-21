@@ -367,4 +367,75 @@ test("statLevel: normal, warning at 80% / 85°C, critical at 95% / 95°C", () =>
   assert.strictEqual(M.statLevel("cpu", st({ cpu: { percent: null } })), "normal")
 })
 
+test("limits settings default on and give the collector's provider list", () => {
+  const d = M.resolveSettings({})
+  assert.deepStrictEqual([d.showLimits, d.limitClaude, d.limitCodex, d.limitGrok], [true, true, true, true])
+  assert.strictEqual(M.limitsProvidersArg(d), "claude,codex,grok")
+  assert.strictEqual(M.limitsProvidersArg(M.resolveSettings({ limitCodex: false })), "claude,grok")
+  assert.strictEqual(M.limitsProvidersArg(M.resolveSettings({ showLimits: false })), "")
+})
+
+test("limitWindows sorts session, weekly and model-specific windows", () => {
+  const claude = { limits: [
+    { label: "Session (5-hour)", percent: 0.04, resetsAt: "2026-10-21T13:10:00Z" },
+    { label: "Weekly (7-day)", percent: 0.07, resetsAt: "2026-10-28T01:00:00Z" },
+    { label: "Fable Weekly", title: "Fable Weekly", percent: 0.04, resetsAt: "2026-10-28T01:00:00Z" }
+  ] }
+  const w = M.limitWindows(claude)
+  assert.strictEqual(w.session.percent, 0.04)
+  assert.strictEqual(w.weekly.percent, 0.07)
+  assert.deepStrictEqual(w.extras.map(e => e.title), ["Fable Weekly"])
+  const grok = M.limitWindows({ limits: [{ label: "Weekly (7-day)", title: "Weekly", percent: 0.11 }] })
+  assert.strictEqual(grok.session, null)
+  assert.strictEqual(grok.weekly.percent, 0.11)
+  assert.strictEqual(M.limitWindows({ limits: [{ label: "5h window", percent: 0.5 }] }).session.percent, 0.5)
+  assert.deepStrictEqual(M.limitWindows(null), { session: null, weekly: null, extras: [] })
+})
+
+test("mergeLimitRecord keeps the last numbers when a refresh comes back empty", () => {
+  const prev = { available: true, plan: "pro", status: "", stale: false, updatedAt: "a", limits: [{ label: "Weekly", percent: 0.79 }] }
+  const empty = { available: true, plan: "pro", status: "Codex limits unavailable", stale: false, updatedAt: "b", limits: [] }
+  const merged = M.mergeLimitRecord(prev, empty)
+  assert.strictEqual(merged.stale, true)
+  assert.strictEqual(merged.limits[0].percent, 0.79)
+  assert.strictEqual(merged.status, "Codex limits unavailable")
+  const fresh = { available: true, plan: "pro", status: "", stale: false, updatedAt: "c", limits: [{ label: "Weekly", percent: 0.8 }] }
+  assert.strictEqual(M.mergeLimitRecord(prev, fresh), fresh)
+  assert.strictEqual(M.mergeLimitRecord(null, empty), empty)
+})
+
+test("formatResetIn and limitTooltip", () => {
+  const now = Date.parse("2026-10-21T10:43:00Z")
+  assert.strictEqual(M.formatResetIn("2026-10-21T13:10:00Z", now), "in 2h 27m")
+  assert.strictEqual(M.formatResetIn("2026-10-28T01:00:00Z", now), "in 6d 14h")
+  assert.strictEqual(M.formatResetIn("2026-10-21T10:50:00Z", now), "in 7m")
+  assert.strictEqual(M.formatResetIn("2026-10-21T10:00:00Z", now), "now")
+  assert.strictEqual(M.formatResetIn("", now), "")
+  const tip = M.limitTooltip(M.LIMIT_PROVIDERS[0], { plan: "Max 20x", status: "", stale: false, limits: [
+    { label: "Session (5-hour)", percent: 0.04, resetsAt: "2026-10-21T13:10:00Z" },
+    { label: "Weekly (7-day)", percent: 0.07, resetsAt: "2026-10-28T01:00:00Z" },
+    { label: "Fable Weekly", title: "Fable Weekly", percent: 0.04, resetsAt: "2026-10-28T01:00:00Z" }
+  ] }, now)
+  assert.strictEqual(tip, "Claude · Max 20x\nSession 4% · resets in 2h 27m\nWeekly 7% · resets in 6d 14h\nFable Weekly 4% · resets in 6d 14h")
+  const grokTip = M.limitTooltip(M.LIMIT_PROVIDERS[2], { plan: "SuperGrok Plus", status: "", limits: [{ label: "Weekly (7-day)", percent: 0.11 }] }, now)
+  assert.ok(grokTip.indexOf("Session — (no session limit)") !== -1)
+  assert.strictEqual(M.limitTooltip(M.LIMIT_PROVIDERS[1], null, now), "OpenAI\nReading limits…")
+})
+
+test("llm_limits.py reports a missing collector without crashing", () => {
+  const { spawnSync } = require("child_process")
+  const run = spawnSync("python3", ["-I", "-B", "-c", [
+    "import sys, json, runpy",
+    "sys.argv=['llm_limits.py']",
+    "m=runpy.run_path(" + JSON.stringify(path.join(__dirname, "..", "llm_limits.py")) + ")",
+    "m['COLLECTORS']['claude']=['/nonexistent/collector']",
+    "print(json.dumps(m['collect']('claude', 5)[1]))"
+  ].join("\n")], { encoding: "utf8", timeout: 15000 })
+  assert.strictEqual(run.status, 0, run.stderr)
+  const out = JSON.parse(run.stdout.trim())
+  assert.strictEqual(out.available, false)
+  assert.ok(/not found/.test(out.status))
+  assert.deepStrictEqual(out.limits, [])
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

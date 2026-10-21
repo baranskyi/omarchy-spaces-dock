@@ -49,6 +49,7 @@ PanelWindow {
   mask: Region {
     item: dockSurface
     Region { item: playerIsland }
+    Region { item: limitsIsland }
     Region { item: statsIsland }
   }
 
@@ -143,11 +144,28 @@ PanelWindow {
     dock: dockWindow
   }
 
+  // AI limits sit between the dock and the stats.
+  LimitsIsland {
+    id: limitsIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.full
+      ? dockWindow.width - dockWindow.islandGap - width - (statsIsland.shown ? statsIsland.width + dockWindow.islandGap : 0)
+      : dockSurface.x + dockSurface.width + dockWindow.islandGap
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    limits: dockWindow.service.limits
+    spaces: spaces
+    dock: dockWindow
+  }
+
   StatsIsland {
     id: statsIsland
     anchors.bottom: parent.bottom
     height: parent.height
-    x: dockWindow.full ? dockWindow.width - dockWindow.islandGap - width : dockSurface.x + dockSurface.width + dockWindow.islandGap
+    x: dockWindow.full ? dockWindow.width - dockWindow.islandGap - width
+      : limitsIsland.shown ? limitsIsland.x + limitsIsland.width + dockWindow.islandGap
+      : dockSurface.x + dockSurface.width + dockWindow.islandGap
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
     stats: dockWindow.service.stats

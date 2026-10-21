@@ -9,7 +9,7 @@ import "Model.js" as Model
 //   - settings: read from this plugin's top-level entry in shell.json and
 //     written back through the shell's updateEntryInline,
 //   - the media player and system stats shown by the dock's islands,
-//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous,
+//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous/refreshLimits,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -104,6 +104,7 @@ Item {
   // Shared by every monitor's dock.
   property alias media: mediaModel
   property alias stats: statsModel
+  property alias limits: limitsModel
 
   Media {
     id: mediaModel
@@ -113,6 +114,11 @@ Item {
   Stats {
     id: statsModel
     metrics: root.ready ? Model.statsMetricsArg(root.cfg) : ""
+  }
+
+  Limits {
+    id: limitsModel
+    providers: root.ready ? Model.limitsProvidersArg(root.cfg) : ""
   }
 
   // ------------------------------------------------------------ docks
@@ -180,6 +186,7 @@ Item {
       return s && s.peek(workspace) ? "ok" : "empty"
     }
     function system(): void { var d = root.focusedDock(); if (d) d.systemPanel.toggle() }
+    function refreshLimits(): void { limitsModel.refresh() }
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
     function next(): string { return mediaModel.next() ? "ok" : "no player" }
     function previous(): string { return mediaModel.previous() ? "ok" : "no player" }

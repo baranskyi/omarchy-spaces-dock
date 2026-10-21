@@ -1357,7 +1357,7 @@ Panel {
 
           ToggleSetting {
             label: "Show system stats"
-            description: "Right of the dock. Hover a value for details, click for btop"
+            description: "Right of the dock. Click for the system panel, right-click for btop"
             key: "showStats"
           }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Mouse buttons on the stats swapped: click opens the system panel, right-click opens btop.
+
 ## 0.3.0
 
 - Right-click the stats for a system panel, forked from the System Monitor plugin by Harshith Chennupati: host, uptime and load, CPU, memory and temperature cards, a two-minute chart, per-core load, network, disk and capacity. Its first button opens the dock settings instead of cycling a bar mode.

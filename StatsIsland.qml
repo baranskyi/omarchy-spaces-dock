@@ -6,8 +6,8 @@ import "Model.js" as Model
 
 // System stats island: one small pill per enabled metric, in the style of the
 // workspace pills. A pill turns yellow under heavy load or heat and red at the
-// extreme (Model.statLevel). Hover for details, click for btop, right-click
-// for the system panel.
+// extreme (Model.statLevel). Hover for details, click for the system panel,
+// right-click for btop.
 BorderSurface {
   id: island
 
@@ -29,6 +29,11 @@ BorderSurface {
     else island.spaces.toggle()
   }
 
+  function openBtop() {
+    if (island.systemPanel && island.systemPanel.opened) island.systemPanel.close()
+    island.spaces.run("omarchy-launch-or-focus-tui btop")
+  }
+
   readonly property var cfg: spaces.cfg
   readonly property var dm: spaces.dm
   readonly property color fg: spaces.fg
@@ -44,10 +49,14 @@ BorderSurface {
   color: flat ? "transparent" : Color.bar.background
   borderSpec: flat ? Border.none() : Border.surfaceSpec("bar", "border", "transparent", 0)
 
+  // The padding around the pills: same buttons as the pills.
   MouseArea {
     anchors.fill: parent
-    acceptedButtons: Qt.RightButton
-    onClicked: island.openPanel()
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    onClicked: function(mouse) {
+      if (mouse.button === Qt.RightButton) island.openBtop()
+      else island.openPanel()
+    }
   }
 
   Row {
@@ -124,13 +133,13 @@ BorderSurface {
           cursorShape: Qt.PointingHandCursor
           onClicked: function(mouse) {
             island.dock.hideTooltip(statPill)
-            if (mouse.button === Qt.RightButton) island.openPanel()
-            else island.spaces.run("omarchy-launch-or-focus-tui btop")
+            if (mouse.button === Qt.RightButton) island.openBtop()
+            else island.openPanel()
           }
           onContainsMouseChanged: {
             if (containsMouse) {
               var detail = Model.statDetail(statPill.modelData.key, island.stats.state)
-              island.dock.showTooltip(statPill, statPill.modelData.label + "\n" + detail + "\nClick: btop · Right-click: system panel")
+              island.dock.showTooltip(statPill, statPill.modelData.label + "\n" + detail + "\nClick: system panel · Right-click: btop")
             } else {
               island.dock.hideTooltip(statPill)
             }

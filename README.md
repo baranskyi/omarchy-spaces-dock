@@ -14,7 +14,7 @@ Everything Spaces does works here too:
 Two islands sit beside the dock as separate pills:
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Click the cover or title to jump to the player's window. It hides when nothing is playing.
-- **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it to open btop, right-click it for the system panel.
+- **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it for the system panel, right-click it to open btop.
 
 A stat pill has no colour while things are normal. It turns yellow under heavy load or heat and red at the extreme:
 
@@ -25,7 +25,7 @@ A stat pill has no colour while things are normal. It turns yellow under heavy l
 
 Network and fans are never coloured.
 
-The system panel opens above the stats on right-click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
+The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 

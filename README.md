@@ -50,7 +50,7 @@ omarchy plugin disable io.github.baranskyi.spaces-dock
 
 ## Settings
 
-Settings live on the plugin's entry in the `plugins` list of `~/.config/omarchy/shell.json`. The settings panel writes them there. If Spaces is in your bar, **Copy settings from Spaces in the bar** at the bottom of the panel copies its style to the dock. Icon size and the dock-only settings are not copied.
+Settings live on the plugin's entry in the `plugins` list of `~/.config/omarchy/shell.json`. The settings panel writes them there. If Spaces is in your bar, the `copyBarSettings` IPC call below copies its style to the dock. Icon size and the dock-only settings are not copied.
 
 Dock settings:
 

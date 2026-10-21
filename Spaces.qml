@@ -1492,18 +1492,6 @@ Panel {
           PanelSeparator { foreground: root.fg }
 
           Button {
-            visible: !!root.service && Object.keys(root.service.barWidgetSettings).length > 0
-            text: "Copy settings from Spaces in the bar"
-            foreground: root.fg
-            fontFamily: root.fontFamily
-            fontSize: Style.font.bodySmall
-            bordered: true
-            horizontalPadding: Style.spacing.controlPaddingX
-            verticalPadding: Style.spacing.controlPaddingY
-            onClicked: root.service.copyBarSettings()
-          }
-
-          Button {
             text: "Reset to defaults"
             foreground: root.fg
             fontFamily: root.fontFamily

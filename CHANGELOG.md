@@ -9,7 +9,7 @@ First release: Spaces moved from the bar into a dock at the bottom of the screen
 - Icon size now goes up to 64 px. Pills, labels, spacing and badges scale with the dock height.
 - The settings panel and previews open upward from the dock.
 - Tooltips get their own window above the dock. Hovered items now report `tooltipHovered`, which the upstream widget lacked, so its tooltips never showed.
-- Settings can be copied from the Spaces bar widget, from the panel or over IPC.
+- Settings can be copied from the Spaces bar widget over IPC.
 - The agent hook notifies both the dock and the Spaces bar widget.
 
 Forked from Spaces 1.0.0 by Tornike Gomareli, commit f8306d7.

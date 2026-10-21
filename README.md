@@ -1,0 +1,160 @@
+# Spaces Dock
+
+A large workspace dock for the bottom of the screen in [Omarchy](https://omarchy.org). It is a fork of [Spaces](https://github.com/tornikegomareli/omarchy-spaces) by Tornike Gomareli, moved out of the bar into its own dock so it can be much bigger.
+
+Everything Spaces does works here too:
+
+- Each workspace is a pill that shows the icons of the apps open on it.
+- Hovering another workspace shows a live miniature of its windows.
+- Coding agents running in a terminal get a badge: a spinner while working, a pulse when they need input, a check mark when done.
+- Urgent windows pulse their workspace.
+- Scrolling switches workspaces, and middle-click can close a window.
+- Right-click the dock to open its settings.
+
+The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
+
+It runs alongside the Spaces bar widget. Use either one, or both.
+
+## Install
+
+From GitHub:
+
+```bash
+omarchy plugin add https://github.com/baranskyi/omarchy-spaces-dock.git --enable --yes
+```
+
+From a local checkout:
+
+```bash
+ln -sfn "$PWD" ~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock
+omarchy-shell shell rescanPlugins
+omarchy plugin enable io.github.baranskyi.spaces-dock
+```
+
+The dock appears at once on every monitor. To remove it:
+
+```bash
+omarchy plugin disable io.github.baranskyi.spaces-dock
+```
+
+## Use
+
+| Action | Result |
+|---|---|
+| Click a pill | Focus that workspace |
+| Click an app icon | Focus that window. On a grouped icon that is already focused, cycle its windows |
+| Hover another workspace | Live preview above the dock. Click a window in it to jump there |
+| Scroll over the dock | Step through workspaces |
+| Middle-click an icon | Close that window, when enabled |
+| Right-click the dock, or its gear | Settings |
+
+## Settings
+
+Settings live on the plugin's entry in the `plugins` list of `~/.config/omarchy/shell.json`. The settings panel writes them there. If Spaces is in your bar, **Copy settings from Spaces in the bar** at the bottom of the panel copies its style to the dock. Icon size and the dock-only settings are not copied.
+
+Dock settings:
+
+| Key | Values | Default |
+|---|---|---|
+| `dockHeight` | 40 to 96 px | 56 |
+| `alignment` | `center` (pill sized to content), `full` (edge to edge) | `center` |
+| `monitors` | `all`, `primary` (lowest Hyprland monitor id), or an output name such as `HDMI-A-1` | `all` |
+| `bottomMargin` | 0 to 64 px | 0 |
+| `reserveSpace` | `true` (windows stop above the dock), `false` (floats over them) | `true` |
+| `hideWithBar` | `true` hides the dock while the bar is toggled off | `true` |
+
+A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
+
+All Spaces settings are kept, with the same keys. The only change is a wider icon range.
+
+| Key | Values | Default |
+|---|---|---|
+| `showIcons` | bool | `true` |
+| `showApps` | `all`, `active`, `hover`, `hoverOnly` | `hover` |
+| `iconStyle` | `color`, `mono` | `color` |
+| `iconSize` | 12 to 64 px | 28 |
+| `maxIcons` | 1 to 20 | 8 |
+| `groupApps`, `dimUnfocused`, `focusedTitle`, `agentStatus` | bool | `false`, `true`, `false`, `true` |
+| `titleLength` | 8 to 60 | 24 |
+| `previews`, `previewLive` | bool | `true`, `true` |
+| `previewSize` | `small`, `medium`, `large` | `medium` |
+| `activeStyle` | `subtle`, `solid`, `accent` | `subtle` |
+| `labelStyle` | `number`, `glyph`, `none` | `number` |
+| `density` | `compact`, `normal`, `roomy` | `normal` |
+| `settingsButton` | `hover`, `always`, `never` | `hover` |
+| `urgentHighlight`, `tooltips` | bool | `true`, `true` |
+| `persistentWorkspaces` | 0 to 10 | 5 |
+| `hideEmpty`, `perMonitor` | bool | `false`, `false` |
+| `activeClick` | `none`, `previous` | `none` |
+| `scrollSwitch`, `middleClickClose` | bool | `true`, `false` |
+| `animations` | bool | `true` |
+| `animationSpeed` | `slow`, `normal`, `fast` | `normal` |
+
+To set a value from a script, edit the entry with `jq`. The shell and the dock both pick the change up on their own. `omarchy bar set` only works for bar widgets, so it cannot set these.
+
+```bash
+jq '(.plugins[] | select(.id=="io.github.baranskyi.spaces-dock")).dockHeight = 64' ~/.config/omarchy/shell.json > /tmp/shell.json && mv /tmp/shell.json ~/.config/omarchy/shell.json
+```
+
+## IPC
+
+```bash
+omarchy-shell io.github.baranskyi.spaces-dock toggle
+```
+
+| Method | Effect |
+|---|---|
+| `open`, `close`, `toggle` | Settings on the focused monitor's dock. `close` closes them everywhere |
+| `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
+| `copyBarSettings` | Copy the style of the Spaces bar widget |
+| `agent <session> <state> <pids>` | Used by the agent hook below |
+
+## Agent badges
+
+Badges need Claude Code hooks. Add these to `~/.claude/settings.json`. The hook notifies the dock and, if installed, the Spaces bar widget, so one set of hooks serves both.
+
+```json
+"hooks": {
+  "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock/hooks/claude-hook working", "async": true }] }],
+  "PostToolUse": [{ "hooks": [{ "type": "command", "command": "~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock/hooks/claude-hook working", "async": true }] }],
+  "Notification": [{ "hooks": [{ "type": "command", "command": "~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock/hooks/claude-hook waiting", "async": true }] }],
+  "Stop": [{ "hooks": [{ "type": "command", "command": "~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock/hooks/claude-hook done", "async": true }] }],
+  "SessionEnd": [{ "hooks": [{ "type": "command", "command": "~/.config/omarchy/plugins/io.github.baranskyi.spaces-dock/hooks/claude-hook end", "async": true }] }]
+}
+```
+
+The hook needs `jq`, which Omarchy installs.
+
+## How it works
+
+Bar widgets can only live inside the one active bar, which has no bottom slot. So Spaces Dock is a `service` plugin with `keepLoaded`, and it opens its own layer-shell window at the bottom of each monitor.
+
+```
+manifest.json        service plugin, keepLoaded
+Service.qml          settings from shell.json, IPC, one DockWindow per screen
+DockWindow.qml       bottom PanelWindow per monitor: dock surface, tooltips, a stand-in bar for Spaces
+Spaces.qml           the Spaces widget, forked: sizes follow the dock height
+Model.js             pure helpers: settings, dock metrics, layout, monitor choice
+tests/model.test.js  node tests for Model.js
+hooks/claude-hook    agent status hook
+```
+
+Notes for changing it:
+
+- `keepLoaded` keeps the dock windows alive across the shell's plugin hot reloads. Recreating windows that hold live screen captures can leave a stale layer surface behind and break screen capture. The cost is that code changes need `omarchy restart shell`.
+- Every size inside the dock comes from `Model.dockMetrics`, which scales the bar widget's proportions by the dock height.
+- `DockWindow.qml` gives Spaces a stand-in for the bar facade that bar widgets normally get (`/usr/share/omarchy/shell/Ui/PluginBarApi.qml`). Any new `bar.*` member that Spaces uses must be added there.
+
+## Develop
+
+```bash
+node tests/model.test.js
+omarchy plugin validate "$PWD"
+omarchy restart shell
+journalctl --user -t omarchy-shell -f
+hyprctl layers | grep -A0 spaces-dock
+```
+
+## Credits
+
+Spaces by [Tornike Gomareli](https://github.com/tornikegomareli/omarchy-spaces), MIT. Spaces Dock keeps that license, see `LICENSE`.

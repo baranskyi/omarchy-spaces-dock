@@ -1261,7 +1261,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       onCloseRequested: root.close()
-      onTabRequested: function(direction) { root.switchPanel(direction) }
+      onTabRequested: function(direction) { root.cycleSettingsTab(direction) }
 
       Flickable {
         anchors.fill: parent
@@ -1297,268 +1297,301 @@ Panel {
 
           PanelSeparator { foreground: root.fg }
 
-          // ---- Dock
-          SectionTitle { text: "DOCK" }
+          // Settings are split into tabs; Tab cycles them while the panel is open.
+          ButtonGroup {
+            options: root.settingsTabs
+            value: root.settingsTab
+            foreground: root.fg
+            fontFamily: root.fontFamily
+            fontSize: Style.font.bodySmall
+            focusable: false
+            onChanged: function(value) { root.settingsTab = value }
+          }
 
-          Text {
+          PanelSeparator { foreground: root.fg }
+
+          Column {
             width: parent.width
-            wrapMode: Text.WordWrap
-            text: "Drag the player, AI limits and stats pills to reorder them. The workspace pill stays centered."
-            color: Qt.darker(root.fg, 1.4)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
+            spacing: Style.space(14)
+            visible: root.settingsTab === "dock"
+
+            // ---- Dock
+
+            Text {
+              width: parent.width
+              wrapMode: Text.WordWrap
+              text: "Drag the player, AI limits and stats pills to reorder them. The workspace pill stays centered."
+              color: Qt.darker(root.fg, 1.4)
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            SliderSetting { title: "DOCK HEIGHT"; key: "dockHeight"; minimum: 40; maximum: 96; suffix: "px" }
+
+            ChoiceSetting {
+              title: "ALIGNMENT"
+              key: "alignment"
+              options: [
+                { value: "center", label: "Centered" },
+                { value: "full", label: "Full width" }
+              ]
+            }
+
+            ChoiceSetting {
+              title: "MONITORS"
+              key: "monitors"
+              options: root.monitorOptions
+            }
+
+            SliderSetting { title: "BOTTOM MARGIN"; key: "bottomMargin"; minimum: 0; maximum: 64; suffix: "px" }
+
+            ToggleSetting {
+              label: "Reserve space"
+              description: root.cfg.reserveSpace ? "Windows stop above the dock" : "The dock floats over windows"
+              key: "reserveSpace"
+            }
+
+            ToggleSetting { label: "Hide with the bar"; description: "Follow the bar's show and hide toggle"; key: "hideWithBar" }
           }
 
-          SliderSetting { title: "DOCK HEIGHT"; key: "dockHeight"; minimum: 40; maximum: 96; suffix: "px" }
+          Column {
+            width: parent.width
+            spacing: Style.space(14)
+            visible: root.settingsTab === "workspaces"
 
-          ChoiceSetting {
-            title: "ALIGNMENT"
-            key: "alignment"
-            options: [
-              { value: "center", label: "Centered" },
-              { value: "full", label: "Full width" }
-            ]
+            // ---- Workspaces
+            SectionTitle { text: "WORKSPACES" }
+
+            SliderSetting { title: "ALWAYS SHOW WORKSPACES"; key: "persistentWorkspaces"; minimum: 0; maximum: 10 }
+            ToggleSetting { label: "Hide empty workspaces"; key: "hideEmpty" }
+            ToggleSetting { label: "Only this monitor's workspaces"; key: "perMonitor" }
+
+            PanelSeparator { foreground: root.fg }
+
+            // ---- Behavior
+            SectionTitle { text: "BEHAVIOR" }
+
+            ChoiceSetting {
+              title: "CLICKING THE ACTIVE WORKSPACE"
+              key: "activeClick"
+              options: [
+                { value: "none", label: "Does nothing" },
+                { value: "previous", label: "Goes back" }
+              ]
+            }
+
+            ToggleSetting { label: "Scroll to switch workspaces"; key: "scrollSwitch" }
+            ToggleSetting { label: "Middle-click icon closes window"; key: "middleClickClose" }
+
+            PanelSeparator { foreground: root.fg }
+
+            // ---- Previews
+            SectionTitle { text: "PREVIEWS" }
+
+            ToggleSetting {
+              label: "Workspace previews"
+              description: "Hover another workspace to see a live miniature of it"
+              key: "previews"
+            }
+
+            ChoiceSetting {
+              visible: root.cfg.previews
+              title: "PREVIEW SIZE"
+              key: "previewSize"
+              options: [
+                { value: "small", label: "Small" },
+                { value: "medium", label: "Medium" },
+                { value: "large", label: "Large" }
+              ]
+            }
+
+            ToggleSetting {
+              visible: root.cfg.previews
+              label: "Live video"
+              description: "Off shows a still frame and saves power"
+              key: "previewLive"
+            }
           }
 
-          ChoiceSetting {
-            title: "MONITORS"
-            key: "monitors"
-            options: root.monitorOptions
+          Column {
+            width: parent.width
+            spacing: Style.space(14)
+            visible: root.settingsTab === "icons"
+
+            // ---- App icons
+
+            ToggleSetting {
+              label: "Show app icons"
+              description: root.cfg.showIcons ? "Icons of open apps appear in workspace pills" : "Hidden: workspaces show numbers only"
+              key: "showIcons"
+            }
+
+            ChoiceSetting {
+              visible: root.cfg.showIcons
+              title: "SHOW ICONS ON"
+              key: "showApps"
+              options: [
+                { value: "all", label: "Always" },
+                { value: "active", label: "Active" },
+                { value: "hover", label: "Active + hover" },
+                { value: "hoverOnly", label: "Hover" }
+              ]
+            }
+
+            ChoiceSetting {
+              visible: root.cfg.showIcons
+              title: "ICON STYLE"
+              key: "iconStyle"
+              options: [
+                { value: "color", label: "Color" },
+                { value: "mono", label: "Monochrome" }
+              ]
+            }
+
+            SliderSetting { visible: root.cfg.showIcons; title: "ICON SIZE"; key: "iconSize"; minimum: 12; maximum: 64; suffix: "px" }
+            SliderSetting { visible: root.cfg.showIcons; title: "MAX ICONS PER WORKSPACE"; key: "maxIcons"; minimum: 1; maximum: 20 }
+
+            ToggleSetting { visible: root.cfg.showIcons; label: "Group windows by app"; description: "One icon per app with a window count"; key: "groupApps" }
+            ToggleSetting { visible: root.cfg.showIcons; label: "Dim unfocused windows"; description: "On the active workspace"; key: "dimUnfocused" }
+            ToggleSetting { visible: root.cfg.showIcons; label: "Show focused window title"; description: "Next to its icon"; key: "focusedTitle" }
+            ToggleSetting { visible: root.cfg.showIcons; label: "Agent status"; description: "Badges on terminals running coding agents"; key: "agentStatus" }
           }
 
-          SliderSetting { title: "BOTTOM MARGIN"; key: "bottomMargin"; minimum: 0; maximum: 64; suffix: "px" }
+          Column {
+            width: parent.width
+            spacing: Style.space(14)
+            visible: root.settingsTab === "look"
 
-          ToggleSetting {
-            label: "Reserve space"
-            description: root.cfg.reserveSpace ? "Windows stop above the dock" : "The dock floats over windows"
-            key: "reserveSpace"
+            // ---- Appearance
+            SectionTitle { text: "APPEARANCE" }
+
+            ChoiceSetting {
+              title: "ACTIVE WORKSPACE"
+              key: "activeStyle"
+              options: [
+                { value: "subtle", label: "Subtle" },
+                { value: "solid", label: "Solid" },
+                { value: "accent", label: "Accent" }
+              ]
+            }
+
+            ChoiceSetting {
+              title: "WORKSPACE LABEL"
+              key: "labelStyle"
+              options: [
+                { value: "number", label: "Number" },
+                { value: "glyph", label: "Glyph" },
+                { value: "none", label: "None" }
+              ]
+            }
+
+            ChoiceSetting {
+              title: "DENSITY"
+              key: "density"
+              options: [
+                { value: "compact", label: "Compact" },
+                { value: "normal", label: "Normal" },
+                { value: "roomy", label: "Roomy" }
+              ]
+            }
+
+            ChoiceSetting {
+              title: "SETTINGS BUTTON"
+              key: "settingsButton"
+              options: [
+                { value: "hover", label: "On hover" },
+                { value: "always", label: "Always" },
+                { value: "never", label: "Hidden" }
+              ]
+            }
+
+            ToggleSetting { label: "Highlight urgent windows"; description: "Pulse workspaces with windows asking for attention"; key: "urgentHighlight" }
+            ToggleSetting { label: "Tooltips"; description: "Window titles on hover"; key: "tooltips" }
+
+            PanelSeparator { foreground: root.fg }
+
+            // ---- Animation
+            SectionTitle { text: "ANIMATION" }
+
+            ToggleSetting { label: "Animations"; key: "animations" }
+
+            ChoiceSetting {
+              visible: root.cfg.animations
+              title: "SPEED"
+              key: "animationSpeed"
+              options: [
+                { value: "slow", label: "Slow" },
+                { value: "normal", label: "Normal" },
+                { value: "fast", label: "Fast" }
+              ]
+            }
           }
 
-          ToggleSetting { label: "Hide with the bar"; description: "Follow the bar's show and hide toggle"; key: "hideWithBar" }
+          Column {
+            width: parent.width
+            spacing: Style.space(14)
+            visible: root.settingsTab === "pills"
 
-          PanelSeparator { foreground: root.fg }
+            // ---- Player
+            SectionTitle { text: "PLAYER" }
 
-          // ---- Player
-          SectionTitle { text: "PLAYER" }
+            ToggleSetting {
+              label: "Show player"
+              description: "Shows while Spotify runs, with cover art and the current track"
+              key: "showPlayer"
+            }
 
-          ToggleSetting {
-            label: "Show player"
-            description: "Shows while Spotify runs, with cover art and the current track"
-            key: "showPlayer"
-          }
+            ChoiceSetting {
+              visible: root.cfg.showPlayer
+              title: "SOURCE"
+              key: "playerSource"
+              options: [
+                { value: "spotify", label: "Spotify" },
+                { value: "any", label: "Any player" }
+              ]
+            }
 
-          ChoiceSetting {
-            visible: root.cfg.showPlayer
-            title: "SOURCE"
-            key: "playerSource"
-            options: [
-              { value: "spotify", label: "Spotify" },
-              { value: "any", label: "Any player" }
-            ]
-          }
+            ToggleSetting { visible: root.cfg.showPlayer; label: "Playback buttons"; description: "Previous, play and next"; key: "playerControls" }
 
-          ToggleSetting { visible: root.cfg.showPlayer; label: "Playback buttons"; description: "Previous, play and next"; key: "playerControls" }
+            PanelSeparator { foreground: root.fg }
 
-          PanelSeparator { foreground: root.fg }
+            // ---- AI limits
+            SectionTitle { text: "AI LIMITS" }
 
-          // ---- AI limits
-          SectionTitle { text: "AI LIMITS" }
+            ToggleSetting {
+              label: "Show AI limits"
+              description: "Outer ring: 5-hour session · inner ring: weekly"
+              key: "showLimits"
+            }
 
-          ToggleSetting {
-            label: "Show AI limits"
-            description: "Outer ring: 5-hour session · inner ring: weekly"
-            key: "showLimits"
-          }
+            ToggleSetting { visible: root.cfg.showLimits; label: "Claude"; key: "limitClaude" }
+            ToggleSetting { visible: root.cfg.showLimits; label: "OpenAI"; description: "Codex and ChatGPT"; key: "limitCodex" }
+            ToggleSetting { visible: root.cfg.showLimits; label: "Grok"; key: "limitGrok" }
+            ToggleSetting {
+              visible: root.cfg.showLimits && root.cfg.limitGrok
+              label: "Refresh Grok sign-in"
+              description: "Renew the Grok CLI token in ~/.grok/auth.json when it expires"
+              key: "limitGrokRefresh"
+            }
 
-          ToggleSetting { visible: root.cfg.showLimits; label: "Claude"; key: "limitClaude" }
-          ToggleSetting { visible: root.cfg.showLimits; label: "OpenAI"; description: "Codex and ChatGPT"; key: "limitCodex" }
-          ToggleSetting { visible: root.cfg.showLimits; label: "Grok"; key: "limitGrok" }
-          ToggleSetting {
-            visible: root.cfg.showLimits && root.cfg.limitGrok
-            label: "Refresh Grok sign-in"
-            description: "Renew the Grok CLI token in ~/.grok/auth.json when it expires"
-            key: "limitGrokRefresh"
-          }
+            PanelSeparator { foreground: root.fg }
 
-          PanelSeparator { foreground: root.fg }
+            // ---- System stats
+            SectionTitle { text: "SYSTEM" }
 
-          // ---- System stats
-          SectionTitle { text: "SYSTEM" }
+            ToggleSetting {
+              label: "Show system stats"
+              description: "Right of the dock. Click for the system panel, right-click for btop"
+              key: "showStats"
+            }
 
-          ToggleSetting {
-            label: "Show system stats"
-            description: "Right of the dock. Click for the system panel, right-click for btop"
-            key: "showStats"
-          }
-
-          ToggleSetting { visible: root.cfg.showStats; label: "CPU"; key: "statCpu" }
-          ToggleSetting { visible: root.cfg.showStats; label: "GPU"; description: "A sleeping NVIDIA GPU is never woken up"; key: "statGpu" }
-          ToggleSetting { visible: root.cfg.showStats; label: "Memory"; key: "statMemory" }
-          ToggleSetting { visible: root.cfg.showStats; label: "Storage"; key: "statStorage" }
-          ToggleSetting { visible: root.cfg.showStats; label: "Network"; key: "statNetwork" }
-          ToggleSetting { visible: root.cfg.showStats; label: "Fans"; key: "statFans" }
-          ToggleSetting { visible: root.cfg.showStats; label: "Temperature"; description: "CPU package"; key: "statTemperature" }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- App icons
-          SectionTitle { text: "APP ICONS" }
-
-          ToggleSetting {
-            label: "Show app icons"
-            description: root.cfg.showIcons ? "Icons of open apps appear in workspace pills" : "Hidden: workspaces show numbers only"
-            key: "showIcons"
-          }
-
-          ChoiceSetting {
-            visible: root.cfg.showIcons
-            title: "SHOW ICONS ON"
-            key: "showApps"
-            options: [
-              { value: "all", label: "Always" },
-              { value: "active", label: "Active" },
-              { value: "hover", label: "Active + hover" },
-              { value: "hoverOnly", label: "Hover" }
-            ]
-          }
-
-          ChoiceSetting {
-            visible: root.cfg.showIcons
-            title: "ICON STYLE"
-            key: "iconStyle"
-            options: [
-              { value: "color", label: "Color" },
-              { value: "mono", label: "Monochrome" }
-            ]
-          }
-
-          SliderSetting { visible: root.cfg.showIcons; title: "ICON SIZE"; key: "iconSize"; minimum: 12; maximum: 64; suffix: "px" }
-          SliderSetting { visible: root.cfg.showIcons; title: "MAX ICONS PER WORKSPACE"; key: "maxIcons"; minimum: 1; maximum: 20 }
-
-          ToggleSetting { visible: root.cfg.showIcons; label: "Group windows by app"; description: "One icon per app with a window count"; key: "groupApps" }
-          ToggleSetting { visible: root.cfg.showIcons; label: "Dim unfocused windows"; description: "On the active workspace"; key: "dimUnfocused" }
-          ToggleSetting { visible: root.cfg.showIcons; label: "Show focused window title"; description: "Next to its icon"; key: "focusedTitle" }
-          ToggleSetting { visible: root.cfg.showIcons; label: "Agent status"; description: "Badges on terminals running coding agents"; key: "agentStatus" }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- Previews
-          SectionTitle { text: "PREVIEWS" }
-
-          ToggleSetting {
-            label: "Workspace previews"
-            description: "Hover another workspace to see a live miniature of it"
-            key: "previews"
-          }
-
-          ChoiceSetting {
-            visible: root.cfg.previews
-            title: "PREVIEW SIZE"
-            key: "previewSize"
-            options: [
-              { value: "small", label: "Small" },
-              { value: "medium", label: "Medium" },
-              { value: "large", label: "Large" }
-            ]
-          }
-
-          ToggleSetting {
-            visible: root.cfg.previews
-            label: "Live video"
-            description: "Off shows a still frame and saves power"
-            key: "previewLive"
-          }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- Appearance
-          SectionTitle { text: "APPEARANCE" }
-
-          ChoiceSetting {
-            title: "ACTIVE WORKSPACE"
-            key: "activeStyle"
-            options: [
-              { value: "subtle", label: "Subtle" },
-              { value: "solid", label: "Solid" },
-              { value: "accent", label: "Accent" }
-            ]
-          }
-
-          ChoiceSetting {
-            title: "WORKSPACE LABEL"
-            key: "labelStyle"
-            options: [
-              { value: "number", label: "Number" },
-              { value: "glyph", label: "Glyph" },
-              { value: "none", label: "None" }
-            ]
-          }
-
-          ChoiceSetting {
-            title: "DENSITY"
-            key: "density"
-            options: [
-              { value: "compact", label: "Compact" },
-              { value: "normal", label: "Normal" },
-              { value: "roomy", label: "Roomy" }
-            ]
-          }
-
-          ChoiceSetting {
-            title: "SETTINGS BUTTON"
-            key: "settingsButton"
-            options: [
-              { value: "hover", label: "On hover" },
-              { value: "always", label: "Always" },
-              { value: "never", label: "Hidden" }
-            ]
-          }
-
-          ToggleSetting { label: "Highlight urgent windows"; description: "Pulse workspaces with windows asking for attention"; key: "urgentHighlight" }
-          ToggleSetting { label: "Tooltips"; description: "Window titles on hover"; key: "tooltips" }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- Workspaces
-          SectionTitle { text: "WORKSPACES" }
-
-          SliderSetting { title: "ALWAYS SHOW WORKSPACES"; key: "persistentWorkspaces"; minimum: 0; maximum: 10 }
-          ToggleSetting { label: "Hide empty workspaces"; key: "hideEmpty" }
-          ToggleSetting { label: "Only this monitor's workspaces"; key: "perMonitor" }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- Behavior
-          SectionTitle { text: "BEHAVIOR" }
-
-          ChoiceSetting {
-            title: "CLICKING THE ACTIVE WORKSPACE"
-            key: "activeClick"
-            options: [
-              { value: "none", label: "Does nothing" },
-              { value: "previous", label: "Goes back" }
-            ]
-          }
-
-          ToggleSetting { label: "Scroll to switch workspaces"; key: "scrollSwitch" }
-          ToggleSetting { label: "Middle-click icon closes window"; key: "middleClickClose" }
-
-          PanelSeparator { foreground: root.fg }
-
-          // ---- Animation
-          SectionTitle { text: "ANIMATION" }
-
-          ToggleSetting { label: "Animations"; key: "animations" }
-
-          ChoiceSetting {
-            visible: root.cfg.animations
-            title: "SPEED"
-            key: "animationSpeed"
-            options: [
-              { value: "slow", label: "Slow" },
-              { value: "normal", label: "Normal" },
-              { value: "fast", label: "Fast" }
-            ]
+            ToggleSetting { visible: root.cfg.showStats; label: "CPU"; key: "statCpu" }
+            ToggleSetting { visible: root.cfg.showStats; label: "GPU"; description: "A sleeping NVIDIA GPU is never woken up"; key: "statGpu" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Memory"; key: "statMemory" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Storage"; key: "statStorage" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Network"; key: "statNetwork" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Fans"; key: "statFans" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Temperature"; description: "CPU package"; key: "statTemperature" }
           }
 
           PanelSeparator { foreground: root.fg }
@@ -1576,6 +1609,22 @@ Panel {
         }
       }
     }
+  }
+
+  // Settings panel tabs.
+  readonly property var settingsTabs: [
+    { value: "dock", label: "Dock" },
+    { value: "workspaces", label: "Workspaces" },
+    { value: "icons", label: "Icons" },
+    { value: "look", label: "Look" },
+    { value: "pills", label: "Pills" }
+  ]
+  property string settingsTab: "dock"
+
+  function cycleSettingsTab(direction) {
+    var ids = root.settingsTabs.map(function(t) { return t.value })
+    var i = ids.indexOf(root.settingsTab)
+    root.settingsTab = ids[(i + (direction < 0 ? -1 : 1) + ids.length) % ids.length]
   }
 
   readonly property var monitorOptions: {

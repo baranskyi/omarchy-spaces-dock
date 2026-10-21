@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.4
+
+- The settings panel is split into tabs: Dock, Workspaces (with behavior and previews), Icons, Look (appearance and animation) and Pills (player, AI limits, system stats). Tab cycles the tabs while the panel is open.
+
 ## 0.5.3
 
 - Renewing the Grok CLI token is now opt-in (`limitGrokRefresh`, "Refresh Grok sign-in"), off by default. Without it the bundled Grok collector only reads `~/.grok/auth.json`.

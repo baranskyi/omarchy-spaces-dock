@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- A player island left of the dock: cover art, track, artist and playback buttons. Spotify by default, or any MPRIS player.
+- A system stats island right of the dock: CPU, GPU, memory, storage, network, fans and CPU temperature, with details on hover and btop on click.
+- Both are separate pills beside the centered dock, or the ends of the strip in full-width mode, and both have their own settings sections.
+- `stats.py` collects only the enabled metrics and never wakes a sleeping NVIDIA GPU.
+- IPC: `playPause`, `next` and `previous`.
+
 ## 0.1.0
 
 First release: Spaces moved from the bar into a dock at the bottom of the screen.

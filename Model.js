@@ -16,6 +16,21 @@ var DEFAULTS = {
   monitors: "all",            // "all" | "primary" | an output name such as "HDMI-A-1"
   hideWithBar: true,          // hide the dock while the main bar is toggled off
 
+  // Player island, left of the dock
+  showPlayer: true,
+  playerSource: "spotify",    // "spotify" | "any" (any MPRIS player)
+  playerControls: true,      // previous / play-pause / next buttons
+
+  // System stats island, right of the dock
+  showStats: true,
+  statCpu: true,
+  statMemory: true,
+  statTemperature: true,
+  statGpu: false,
+  statStorage: false,
+  statNetwork: false,
+  statFans: false,
+
   showIcons: true,            // master switch: app icons visible or hidden
   showApps: "hover",          // "all" | "active" | "hover" (active + hovered) | "hoverOnly"
   persistentWorkspaces: 5,    // workspaces 1..N are always shown
@@ -55,6 +70,7 @@ var ACTIVE_STYLES = ["subtle", "solid", "accent"]
 var LABEL_STYLES = ["number", "glyph", "none"]
 var SPEEDS = ["slow", "normal", "fast"]
 var ALIGNMENTS = ["center", "full"]
+var PLAYER_SOURCES = ["spotify", "any"]
 
 var DOCK_HEIGHT_MIN = 40
 var DOCK_HEIGHT_MAX = 96
@@ -87,6 +103,17 @@ function resolveSettings(raw) {
     alignment: oneOf(s.alignment, ALIGNMENTS, d.alignment),
     monitors: typeof s.monitors === "string" && s.monitors.trim() !== "" ? s.monitors.trim() : d.monitors,
     hideWithBar: bool(s.hideWithBar, d.hideWithBar),
+    showPlayer: bool(s.showPlayer, d.showPlayer),
+    playerSource: oneOf(s.playerSource, PLAYER_SOURCES, d.playerSource),
+    playerControls: bool(s.playerControls, d.playerControls),
+    showStats: bool(s.showStats, d.showStats),
+    statCpu: bool(s.statCpu, d.statCpu),
+    statMemory: bool(s.statMemory, d.statMemory),
+    statTemperature: bool(s.statTemperature, d.statTemperature),
+    statGpu: bool(s.statGpu, d.statGpu),
+    statStorage: bool(s.statStorage, d.statStorage),
+    statNetwork: bool(s.statNetwork, d.statNetwork),
+    statFans: bool(s.statFans, d.statFans),
     showIcons: bool(s.showIcons, d.showIcons),
     showApps: oneOf(s.showApps, SHOW_APPS, d.showApps),
     persistentWorkspaces: clampInt(s.persistentWorkspaces, 0, 10, d.persistentWorkspaces),
@@ -206,7 +233,9 @@ var BAR_WIDGET_ID = "tornikegomareli.spaces"
 
 // Settings that belong to the dock alone and never come from the bar widget.
 // iconSize is here too: the bar's sizes are tuned for a 26px bar.
-var DOCK_ONLY_KEYS = ["dockHeight", "bottomMargin", "reserveSpace", "alignment", "monitors", "hideWithBar", "iconSize"]
+var DOCK_ONLY_KEYS = ["dockHeight", "bottomMargin", "reserveSpace", "alignment", "monitors", "hideWithBar", "iconSize",
+  "showPlayer", "playerSource", "playerControls", "showStats",
+  "statCpu", "statMemory", "statTemperature", "statGpu", "statStorage", "statNetwork", "statFans"]
 
 // Finds a widget's entry in the bar layout of the raw shell.json text.
 function barWidgetEntry(rawJson, id) {
@@ -235,6 +264,198 @@ function settingsFromBarEntry(entry) {
     if (entry[key] !== undefined && entry[key] !== null) delta[key] = entry[key]
   }
   return delta
+}
+
+// ------------------------------------------------------------ player
+
+function isSpotifyPlayer(identity, desktopEntry, dbusName) {
+  return /spotify/i.test(String(identity || "") + " " + String(desktopEntry || "") + " " + String(dbusName || ""))
+}
+
+function isProxyPlayer(dbusName, desktopEntry) {
+  return /playerctld/i.test(String(dbusName || "") + " " + String(desktopEntry || ""))
+}
+
+// Picks the player the island shows. `players`: [{ key, spotify, proxy,
+// playing, stopped, hasTrack }] in Mpris order. "spotify" shows Spotify only;
+// "any" prefers whatever is playing, then the last player you controlled.
+// Returns an index into `players`, or -1.
+function pickPlayer(players, source, preferredKey) {
+  var list = players || []
+  var usable = []
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i]
+    if (!p || p.stopped || !p.hasTrack) continue
+    if (source === "spotify" && !p.spotify) continue
+    usable.push(i)
+  }
+  function find(test) {
+    for (var j = 0; j < usable.length; j++) if (test(list[usable[j]])) return usable[j]
+    return -1
+  }
+  var preferred = preferredKey ? find(function(p) { return p.key === preferredKey }) : -1
+  if (preferred !== -1 && list[preferred].playing) return preferred
+  var order = [
+    function(p) { return p.playing && !p.proxy },
+    function(p) { return p.playing && p.proxy }
+  ]
+  for (var o = 0; o < order.length; o++) {
+    var hit = find(order[o])
+    if (hit !== -1) return hit
+  }
+  if (preferred !== -1) return preferred
+  var paused = find(function(p) { return !p.proxy })
+  return paused !== -1 ? paused : find(function() { return true })
+}
+
+// ------------------------------------------------------------ system stats
+
+// Order on the island. Icons are the Material Design Nerd Font glyphs
+// Konostat uses, so both read the same.
+var STATS = [
+  { key: "cpu", setting: "statCpu", label: "CPU", icon: 0xf0ee0, template: "100%" },
+  { key: "gpu", setting: "statGpu", label: "GPU", icon: 0xf08ae, template: "9999 MHz" },
+  { key: "memory", setting: "statMemory", label: "Memory", icon: 0xf035b, template: "100%" },
+  { key: "storage", setting: "statStorage", label: "Storage", icon: 0xf02ca, template: "100%" },
+  { key: "network", setting: "statNetwork", label: "Network", icon: 0xf05a9, template: "↓999K ↑999K" },
+  { key: "fans", setting: "statFans", label: "Fans", icon: 0xf0210, template: "9999 RPM" },
+  { key: "temperature", setting: "statTemperature", label: "Temperature", icon: 0xf050f, template: "100°C" }
+]
+
+// Enabled stats, in island order: [{ key, label, icon (string), template }].
+function enabledStats(settings) {
+  var out = []
+  if (!settings || !settings.showStats) return out
+  for (var i = 0; i < STATS.length; i++) {
+    var m = STATS[i]
+    if (settings[m.setting] === true)
+      out.push({ key: m.key, label: m.label, icon: String.fromCodePoint(m.icon), template: m.template })
+  }
+  return out
+}
+
+// Value for stats.py --metrics; "" when the island is off.
+function statsMetricsArg(settings) {
+  return enabledStats(settings).map(function(m) { return m.key }).join(",")
+}
+
+function isNum(v) { return typeof v === "number" && isFinite(v) }
+
+function formatPercent(v) { return isNum(v) ? Math.round(v) + "%" : "N/A" }
+
+function formatBytes(v) {
+  if (!isNum(v)) return "N/A"
+  var units = ["B", "KiB", "MiB", "GiB", "TiB"]
+  var i = 0
+  while (Math.abs(v) >= 1024 && i < units.length - 1) { v /= 1024; i++ }
+  return (i === 0 ? Math.round(v) : v.toFixed(1)) + " " + units[i]
+}
+
+// Short per-second rate for the island: 0, 950, 12K, 1.2M.
+function formatRate(v) {
+  if (!isNum(v)) return "N/A"
+  var units = ["", "K", "M", "G"]
+  var i = 0
+  while (v >= 1000 && i < units.length - 1) { v /= 1024; i++ }
+  if (i === 0) return String(Math.round(v))
+  return (v < 10 ? v.toFixed(1) : String(Math.round(v))) + units[i]
+}
+
+// The GPU shown on the island: one with a utilization reading, else one with
+// a clock, else the first one.
+function primaryGpu(gpus) {
+  var list = gpus || []
+  for (var i = 0; i < list.length; i++) if (isNum(list[i].percent)) return list[i]
+  for (var j = 0; j < list.length; j++) if (isNum(list[j].frequencyMHz)) return list[j]
+  return list.length ? list[0] : null
+}
+
+function maxValue(rows) {
+  var best = null
+  for (var i = 0; i < (rows || []).length; i++)
+    if (isNum(rows[i].value) && (best === null || rows[i].value > best)) best = rows[i].value
+  return best
+}
+
+// Text on a stat pill. "—" until the collector has reported that metric.
+function statText(key, state) {
+  var s = state || {}
+  if (s[key] === undefined) return "—"
+  switch (key) {
+  case "cpu": return formatPercent(s.cpu.percent)
+  case "memory": return formatPercent(s.memory.percent)
+  case "temperature": return isNum(s.temperature.cpu) ? Math.round(s.temperature.cpu) + "°C" : "N/A"
+  case "gpu":
+    var g = primaryGpu(s.gpu)
+    if (!g) return "N/A"
+    if (isNum(g.percent)) return formatPercent(g.percent)
+    return isNum(g.frequencyMHz) ? Math.round(g.frequencyMHz) + " MHz" : "N/A"
+  case "storage": return s.storage.length ? formatPercent(s.storage[0].percent) : "N/A"
+  case "network": return "↓" + formatRate(s.network.download) + " ↑" + formatRate(s.network.upload)
+  case "fans":
+    var rpm = maxValue(s.fans)
+    return rpm === null ? "N/A" : Math.round(rpm) + " RPM"
+  }
+  return "—"
+}
+
+// Temperatures grouped by part, e.g. "CPU 64°C · SSD 40–45°C".
+function temperatureSummary(sensors) {
+  var groups = {}
+  var order = []
+  for (var i = 0; i < (sensors || []).length; i++) {
+    var sensor = sensors[i]
+    var chip = String(sensor.chip || "")
+    var label = /^(coretemp|k10temp|zenpower|cpu)/i.test(chip) ? "CPU"
+      : /^nvme/i.test(chip) ? "SSD"
+      : /^(spd|dimm)/i.test(chip) ? "Memory"
+      : /^(iwl|ath|wifi|mt7)/i.test(chip) ? "Wi-Fi"
+      : /^(acpi|thinkpad)/i.test(chip) ? "System"
+      : /^(amdgpu|i915|xe|nouveau)$/i.test(chip) ? "GPU" : chip
+    var v = Math.round(sensor.value)
+    if (!groups[label]) { groups[label] = { min: v, max: v }; order.push(label) }
+    else { groups[label].min = Math.min(groups[label].min, v); groups[label].max = Math.max(groups[label].max, v) }
+  }
+  return order.map(function(label) {
+    var g = groups[label]
+    return label + " " + (g.min === g.max ? g.max : g.min + "–" + g.max) + "°C"
+  }).join(" · ")
+}
+
+// Tooltip text for a stat pill.
+function statDetail(key, state) {
+  var s = state || {}
+  if (s[key] === undefined) return "Reading system information…"
+  switch (key) {
+  case "cpu":
+    return s.cpu.name + "\n" + s.cpu.threads + " threads · Load " + (s.cpu.load || []).map(function(v) { return Number(v).toFixed(2) }).join(" / ")
+  case "memory":
+    return "Memory " + formatBytes(s.memory.used) + " / " + formatBytes(s.memory.total)
+      + "\nSwap " + formatBytes(s.memory.swapUsed) + " / " + formatBytes(s.memory.swapTotal)
+  case "temperature":
+    return temperatureSummary(s.temperature.sensors) || "No readable temperature sensors"
+  case "gpu":
+    return (s.gpu || []).map(function(g) {
+      if (g.asleep) return g.name + " · asleep"
+      var parts = [g.name]
+      if (isNum(g.percent)) parts.push(formatPercent(g.percent))
+      if (isNum(g.frequencyMHz)) parts.push(Math.round(g.frequencyMHz) + " MHz")
+      if (isNum(g.temperature)) parts.push(Math.round(g.temperature) + "°C")
+      if (isNum(g.memoryTotal) && g.memoryTotal > 0) parts.push("VRAM " + formatBytes(g.memoryUsed) + " / " + formatBytes(g.memoryTotal))
+      return parts.join(" · ")
+    }).join("\n") || "No GPU detected"
+  case "storage":
+    return (s.storage || []).map(function(d) {
+      return d.mount + " · " + formatBytes(d.used) + " / " + formatBytes(d.total) + " · " + formatBytes(d.free) + " free"
+    }).join("\n") || "No local disks detected"
+  case "network":
+    return (s.network.interfaces || []).map(function(n) {
+      return n.name + " · ↓" + formatBytes(n.download) + "/s ↑" + formatBytes(n.upload) + "/s"
+    }).join("\n") || "No connected network interfaces"
+  case "fans":
+    return (s.fans || []).map(function(f) { return f.name + " · " + Math.round(f.value) + " RPM" }).join("\n") || "No readable fan sensors"
+  }
+  return ""
 }
 
 // Hyprland reports addresses with or without the 0x prefix depending on source.
@@ -514,6 +735,10 @@ if (typeof module !== "undefined") {
     dockMetrics: dockMetrics, primaryScreenName: primaryScreenName, screenSelected: screenSelected,
     pluginEntry: pluginEntry, BAR_WIDGET_ID: BAR_WIDGET_ID,
     barWidgetEntry: barWidgetEntry, settingsFromBarEntry: settingsFromBarEntry,
+    isSpotifyPlayer: isSpotifyPlayer, isProxyPlayer: isProxyPlayer, pickPlayer: pickPlayer,
+    STATS: STATS, enabledStats: enabledStats, statsMetricsArg: statsMetricsArg,
+    formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,
+    primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
     densityMetrics: densityMetrics, normalizeAddress: normalizeAddress,
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,

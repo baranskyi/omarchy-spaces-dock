@@ -11,6 +11,11 @@ Everything Spaces does works here too:
 - Scrolling switches workspaces, and middle-click can close a window.
 - Right-click the dock to open its settings.
 
+Two islands sit beside the dock as separate pills:
+
+- **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Click the cover or title to jump to the player's window. It hides when nothing is playing.
+- **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it to open btop.
+
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
 It runs alongside the Spaces bar widget. Use either one, or both.
@@ -65,6 +70,21 @@ Dock settings:
 
 A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
 
+Player and system stats:
+
+| Key | Values | Default |
+|---|---|---|
+| `showPlayer` | bool | `true` |
+| `playerSource` | `spotify`, `any` (any MPRIS player) | `spotify` |
+| `playerControls` | bool, previous / play / next buttons | `true` |
+| `showStats` | bool | `true` |
+| `statCpu`, `statMemory`, `statTemperature` | bool | `true` |
+| `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
+
+In full-width mode the player and stats sit at the two ends of the strip.
+
+The stats come from `stats.py`, a small Python script that prints a snapshot every two seconds and only collects the metrics that are on. With the GPU metric on, an NVIDIA card is only queried while it is already awake, so the dock never keeps a hybrid laptop's discrete GPU from sleeping.
+
 All Spaces settings are kept, with the same keys. The only change is a wider icon range.
 
 | Key | Values | Default |
@@ -106,6 +126,7 @@ omarchy-shell io.github.baranskyi.spaces-dock toggle
 |---|---|
 | `open`, `close`, `toggle` | Settings on the focused monitor's dock. `close` closes them everywhere |
 | `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
+| `playPause`, `next`, `previous` | Control the player shown on the dock |
 | `copyBarSettings` | Copy the style of the Spaces bar widget |
 | `agent <session> <state> <pids>` | Used by the agent hook below |
 
@@ -131,11 +152,16 @@ Bar widgets can only live inside the one active bar, which has no bottom slot. S
 
 ```
 manifest.json        service plugin, keepLoaded
-Service.qml          settings from shell.json, IPC, one DockWindow per screen
-DockWindow.qml       bottom PanelWindow per monitor: dock surface, tooltips, a stand-in bar for Spaces
+Service.qml          settings from shell.json, IPC, player and stats models, one DockWindow per screen
+DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tooltips, a stand-in bar for Spaces
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
-Model.js             pure helpers: settings, dock metrics, layout, monitor choice
-tests/model.test.js  node tests for Model.js
+PlayerIsland.qml     now-playing pill left of the dock
+StatsIsland.qml      system stats pills right of the dock
+Media.qml            picks the MPRIS player to show
+Stats.qml            runs stats.py and keeps its latest snapshot
+stats.py             system stats collector, Python standard library only
+Model.js             pure helpers: settings, dock metrics, player choice, stat formatting
+tests/model.test.js  node tests for Model.js, including a real stats.py run
 hooks/claude-hook    agent status hook
 ```
 
@@ -158,3 +184,5 @@ hyprctl layers | grep -A0 spaces-dock
 ## Credits
 
 Spaces by [Tornike Gomareli](https://github.com/tornikegomareli/omarchy-spaces), MIT. Spaces Dock keeps that license, see `LICENSE`.
+
+The system stats follow the approach of the Konostat plugin by konochi, and the player follows the Media Controls + Album Art plugin by crmne. Spaces Dock has its own implementation and does not need either one installed.

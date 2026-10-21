@@ -44,8 +44,12 @@ PanelWindow {
   WlrLayershell.layer: WlrLayer.Top
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-  // Clicks outside the dock surface fall through to the windows below.
-  mask: Region { item: dockSurface }
+  // Clicks outside the dock and its islands fall through to the windows below.
+  mask: Region {
+    item: dockSurface
+    Region { item: playerIsland }
+    Region { item: statsIsland }
+  }
 
   // ------------------------------------------------------------ stand-in bar
 
@@ -98,6 +102,10 @@ PanelWindow {
   // ------------------------------------------------------------ surface
 
   readonly property real sidePad: Math.max(0, Math.round((dockHeight - spaces.pillThickness) / 2))
+  // Space between the workspace pill and the player / stats islands, and
+  // from the screen edge in full-width mode.
+  readonly property real islandGap: Style.space(10)
+  readonly property real surfaceRadius: Style.cornerRadius <= 0 ? 0 : spaces.pillRadius + sidePad
 
   BorderSurface {
     id: dockSurface
@@ -105,7 +113,7 @@ PanelWindow {
     anchors.horizontalCenter: parent.horizontalCenter
     height: parent.height
     width: dockWindow.full ? parent.width : Math.min(parent.width, spaces.implicitWidth + dockWindow.sidePad * 2)
-    radius: dockWindow.full || Style.cornerRadius <= 0 ? 0 : spaces.pillRadius + dockWindow.sidePad
+    radius: dockWindow.full ? 0 : dockWindow.surfaceRadius
     color: Color.bar.background
     borderSpec: Border.surfaceSpec("bar", "border", "transparent", 0)
 
@@ -116,6 +124,32 @@ PanelWindow {
       onClicked: spaces.toggle()
       onWheel: function(wheel) { spaces.scrollBy(wheel.angleDelta.y || wheel.angleDelta.x) }
     }
+  }
+
+  // Player on the left and system stats on the right: separate pills beside
+  // the centered dock, or the ends of the strip in full-width mode.
+  PlayerIsland {
+    id: playerIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.full ? dockWindow.islandGap : dockSurface.x - dockWindow.islandGap - width
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    media: dockWindow.service.media
+    spaces: spaces
+    dock: dockWindow
+  }
+
+  StatsIsland {
+    id: statsIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.full ? dockWindow.width - dockWindow.islandGap - width : dockSurface.x + dockSurface.width + dockWindow.islandGap
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    stats: dockWindow.service.stats
+    spaces: spaces
+    dock: dockWindow
   }
 
   Spaces {

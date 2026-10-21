@@ -1329,6 +1329,48 @@ Panel {
 
           PanelSeparator { foreground: root.fg }
 
+          // ---- Player
+          SectionTitle { text: "PLAYER" }
+
+          ToggleSetting {
+            label: "Show player"
+            description: "Cover art and track left of the dock while music plays"
+            key: "showPlayer"
+          }
+
+          ChoiceSetting {
+            visible: root.cfg.showPlayer
+            title: "SOURCE"
+            key: "playerSource"
+            options: [
+              { value: "spotify", label: "Spotify" },
+              { value: "any", label: "Any player" }
+            ]
+          }
+
+          ToggleSetting { visible: root.cfg.showPlayer; label: "Playback buttons"; description: "Previous, play and next"; key: "playerControls" }
+
+          PanelSeparator { foreground: root.fg }
+
+          // ---- System stats
+          SectionTitle { text: "SYSTEM" }
+
+          ToggleSetting {
+            label: "Show system stats"
+            description: "Right of the dock. Hover a value for details, click for btop"
+            key: "showStats"
+          }
+
+          ToggleSetting { visible: root.cfg.showStats; label: "CPU"; key: "statCpu" }
+          ToggleSetting { visible: root.cfg.showStats; label: "GPU"; description: "A sleeping NVIDIA GPU is never woken up"; key: "statGpu" }
+          ToggleSetting { visible: root.cfg.showStats; label: "Memory"; key: "statMemory" }
+          ToggleSetting { visible: root.cfg.showStats; label: "Storage"; key: "statStorage" }
+          ToggleSetting { visible: root.cfg.showStats; label: "Network"; key: "statNetwork" }
+          ToggleSetting { visible: root.cfg.showStats; label: "Fans"; key: "statFans" }
+          ToggleSetting { visible: root.cfg.showStats; label: "Temperature"; description: "CPU package"; key: "statTemperature" }
+
+          PanelSeparator { foreground: root.fg }
+
           // ---- App icons
           SectionTitle { text: "APP ICONS" }
 

@@ -255,4 +255,106 @@ test("settingsFromBarEntry copies shared settings, never dock-only ones", () => 
   assert.deepStrictEqual(M.settingsFromBarEntry(null), {})
 })
 
+test("player and stats settings default and validate", () => {
+  const d = M.resolveSettings({})
+  assert.strictEqual(d.showPlayer, true)
+  assert.strictEqual(d.playerSource, "spotify")
+  assert.strictEqual(d.playerControls, true)
+  assert.strictEqual(d.showStats, true)
+  assert.deepStrictEqual([d.statCpu, d.statMemory, d.statTemperature, d.statGpu, d.statStorage, d.statNetwork, d.statFans],
+    [true, true, true, false, false, false, false])
+  assert.strictEqual(M.resolveSettings({ playerSource: "vlc" }).playerSource, "spotify")
+  assert.strictEqual(M.resolveSettings({ playerSource: "any" }).playerSource, "any")
+})
+
+test("island settings are never copied from the bar widget", () => {
+  assert.deepStrictEqual(M.settingsFromBarEntry({ id: "x", showPlayer: false, statGpu: true, density: "roomy" }), { density: "roomy" })
+})
+
+test("isSpotifyPlayer and isProxyPlayer", () => {
+  assert.strictEqual(M.isSpotifyPlayer("Spotify", "", ""), true)
+  assert.strictEqual(M.isSpotifyPlayer("", "spotify", ""), true)
+  assert.strictEqual(M.isSpotifyPlayer("", "", "org.mpris.MediaPlayer2.spotify"), true)
+  assert.strictEqual(M.isSpotifyPlayer("Firefox", "firefox", "org.mpris.MediaPlayer2.firefox.instance1"), false)
+  assert.strictEqual(M.isProxyPlayer("org.mpris.MediaPlayer2.playerctld", ""), true)
+})
+
+test("pickPlayer: spotify only, ignores stopped and trackless players", () => {
+  const p = (key, o) => Object.assign({ key, spotify: false, proxy: false, playing: false, stopped: false, hasTrack: true }, o)
+  const list = [p("firefox", { playing: true }), p("spotify", { spotify: true }), p("ctl", { proxy: true, playing: true })]
+  assert.strictEqual(M.pickPlayer(list, "spotify", ""), 1)
+  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, stopped: true })], "spotify", ""), -1)
+  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, hasTrack: false })], "spotify", ""), -1)
+  assert.strictEqual(M.pickPlayer([p("firefox", { playing: true })], "spotify", ""), -1)
+  assert.strictEqual(M.pickPlayer([], "any", ""), -1)
+})
+
+test("pickPlayer: any prefers playing, then the last controlled player", () => {
+  const p = (key, o) => Object.assign({ key, spotify: false, proxy: false, playing: false, stopped: false, hasTrack: true }, o)
+  assert.strictEqual(M.pickPlayer([p("a"), p("b", { playing: true })], "any", ""), 1)
+  assert.strictEqual(M.pickPlayer([p("ctl", { proxy: true, playing: true }), p("b", { playing: true })], "any", ""), 1)
+  assert.strictEqual(M.pickPlayer([p("a", { playing: true }), p("b", { playing: true })], "any", "b"), 1)
+  assert.strictEqual(M.pickPlayer([p("a", { playing: true }), p("b")], "any", "b"), 0)
+  assert.strictEqual(M.pickPlayer([p("a"), p("b")], "any", "b"), 1)
+  assert.strictEqual(M.pickPlayer([p("ctl", { proxy: true }), p("b")], "any", ""), 1)
+})
+
+test("enabledStats keeps island order and respects the master switch", () => {
+  const s = M.resolveSettings({ statGpu: true, statFans: true })
+  assert.deepStrictEqual(M.enabledStats(s).map(m => m.key), ["cpu", "gpu", "memory", "fans", "temperature"])
+  assert.strictEqual(M.statsMetricsArg(s), "cpu,gpu,memory,fans,temperature")
+  assert.strictEqual(M.enabledStats(M.resolveSettings({ showStats: false })).length, 0)
+  assert.strictEqual(M.statsMetricsArg(M.resolveSettings({ showStats: false })), "")
+  assert.strictEqual(M.enabledStats(s)[0].icon, String.fromCodePoint(0xf0ee0))
+})
+
+test("formatters", () => {
+  assert.strictEqual(M.formatPercent(55.6), "56%")
+  assert.strictEqual(M.formatPercent(null), "N/A")
+  assert.strictEqual(M.formatBytes(1536), "1.5 KiB")
+  assert.strictEqual(M.formatBytes(512), "512 B")
+  assert.strictEqual(M.formatRate(0), "0")
+  assert.strictEqual(M.formatRate(950), "950")
+  assert.strictEqual(M.formatRate(12 * 1024), "12K")
+  assert.strictEqual(M.formatRate(1.2 * 1024 * 1024), "1.2M")
+})
+
+test("statText and statDetail from a snapshot", () => {
+  const state = {
+    cpu: { name: "Intel", percent: 15.5, threads: 20, load: [5.2, 5.1, 5] },
+    memory: { percent: 56, used: 8 * 1024 ** 3, total: 16 * 1024 ** 3, swapUsed: 0, swapTotal: 0 },
+    temperature: { cpu: 64.2, sensors: [{ chip: "coretemp", name: "Package id 0", value: 64.2 }, { chip: "nvme", name: "Composite", value: 40 }, { chip: "nvme", name: "Sensor 1", value: 45 }] },
+    gpu: [{ name: "Intel", percent: null, frequencyMHz: 900, asleep: false }, { name: "NVIDIA", percent: null, asleep: true }],
+    storage: [{ mount: "/", percent: 36.1, used: 1, total: 2, free: 1 }],
+    network: { download: 155459, upload: 12, interfaces: [{ name: "wlan0", download: 155459, upload: 12 }] },
+    fans: [{ name: "thinkpad fan1", value: 3872 }, { name: "acpi fan1", value: 0 }]
+  }
+  assert.strictEqual(M.statText("cpu", state), "16%")
+  assert.strictEqual(M.statText("memory", state), "56%")
+  assert.strictEqual(M.statText("temperature", state), "64°C")
+  assert.strictEqual(M.statText("gpu", state), "900 MHz")
+  assert.strictEqual(M.statText("storage", state), "36%")
+  assert.strictEqual(M.statText("network", state), "↓152K ↑12")
+  assert.strictEqual(M.statText("fans", state), "3872 RPM")
+  assert.strictEqual(M.statText("cpu", {}), "—")
+  assert.strictEqual(M.statDetail("temperature", state), "CPU 64°C · SSD 40–45°C")
+  assert.ok(M.statDetail("gpu", state).indexOf("NVIDIA · asleep") !== -1)
+  assert.ok(M.statDetail("cpu", state).indexOf("20 threads") !== -1)
+  assert.strictEqual(M.statDetail("memory", {}), "Reading system information…")
+})
+
+test("stats.py snapshot renders through statText", () => {
+  const { spawnSync } = require("child_process")
+  const run = spawnSync("python3", ["-I", "-B", path.join(__dirname, "..", "stats.py"), "--once", "--metrics", "cpu,memory,temperature,storage,network,fans"], { encoding: "utf8", timeout: 15000 })
+  assert.strictEqual(run.status, 0, run.stderr)
+  const state = JSON.parse(run.stdout.trim().split("\n").pop())
+  assert.deepStrictEqual(state.metrics, ["cpu", "fans", "memory", "network", "storage", "temperature"])
+  assert.strictEqual(state.gpu, undefined, "gpu is not collected unless asked for")
+  for (const key of ["cpu", "memory", "storage", "network"]) {
+    const text = M.statText(key, state)
+    assert.ok(text !== "—" && text !== "N/A", key + " -> " + text)
+  }
+  assert.ok(/^(\d+°C|N\/A)$/.test(M.statText("temperature", state)))
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

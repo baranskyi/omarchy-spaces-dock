@@ -8,7 +8,8 @@ import "Model.js" as Model
 // hot-reloads never recreate the dock windows). It owns:
 //   - settings: read from this plugin's top-level entry in shell.json and
 //     written back through the shell's updateEntryInline,
-//   - IPC: open/close/toggle/peek/agent/copyBarSettings for every monitor's dock,
+//   - the media player and system stats shown by the dock's islands,
+//   - IPC: open/close/toggle/peek/agent/playPause/next/previous/copyBarSettings,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -117,6 +118,22 @@ Item {
     return names
   }
 
+  // ------------------------------------------------------------ player and stats
+
+  // Shared by every monitor's dock.
+  property alias media: mediaModel
+  property alias stats: statsModel
+
+  Media {
+    id: mediaModel
+    source: root.cfg.playerSource
+  }
+
+  Stats {
+    id: statsModel
+    metrics: root.ready ? Model.statsMetricsArg(root.cfg) : ""
+  }
+
   // ------------------------------------------------------------ docks
 
   Variants {
@@ -167,6 +184,9 @@ Item {
       var s = root.focusedSpaces()
       return s && s.peek(workspace) ? "ok" : "empty"
     }
+    function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
+    function next(): string { return mediaModel.next() ? "ok" : "no player" }
+    function previous(): string { return mediaModel.previous() ? "ok" : "no player" }
     function copyBarSettings(): string { return root.copyBarSettings() ? "ok" : "no bar widget settings" }
     function agent(session: string, state: string, pids: string): void {
       // Every monitor's dock tracks agents, so relay to all of them.

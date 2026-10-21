@@ -267,13 +267,19 @@ test("isSpotifyPlayer and isProxyPlayer", () => {
   assert.strictEqual(M.isProxyPlayer("org.mpris.MediaPlayer2.playerctld", ""), true)
 })
 
-test("pickPlayer: spotify only, ignores stopped and trackless players", () => {
+test("pickPlayer: Spotify as soon as it runs, other players only with a track", () => {
   const p = (key, o) => Object.assign({ key, spotify: false, proxy: false, playing: false, stopped: false, hasTrack: true }, o)
   const list = [p("firefox", { playing: true }), p("spotify", { spotify: true }), p("ctl", { proxy: true, playing: true })]
   assert.strictEqual(M.pickPlayer(list, "spotify", ""), 1)
-  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, stopped: true })], "spotify", ""), -1)
-  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, hasTrack: false })], "spotify", ""), -1)
+  // Spotify shows as soon as it runs, even stopped and without a track.
+  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, stopped: true })], "spotify", ""), 0)
+  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, hasTrack: false, stopped: true })], "spotify", ""), 0)
   assert.strictEqual(M.pickPlayer([p("firefox", { playing: true })], "spotify", ""), -1)
+  // Other players still need a track.
+  assert.strictEqual(M.pickPlayer([p("firefox", { stopped: true })], "any", ""), -1)
+  assert.strictEqual(M.pickPlayer([p("firefox", { hasTrack: false })], "any", ""), -1)
+  // A playing browser beats an idle Spotify in "any" mode.
+  assert.strictEqual(M.pickPlayer([p("spotify", { spotify: true, stopped: true, hasTrack: false }), p("firefox", { playing: true })], "any", ""), 1)
   assert.strictEqual(M.pickPlayer([], "any", ""), -1)
 })
 

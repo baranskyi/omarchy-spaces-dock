@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- The player appears as soon as Spotify starts, not only once music plays. Until a track is picked it shows "Spotify" and a play button.
+
 ## 0.5.0
 
 - Drag the player, AI limits and stats pills to reorder them on either side of the workspace pill, which always stays centered. The order is saved as `islandOrder`.

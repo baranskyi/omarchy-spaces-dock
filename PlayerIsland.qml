@@ -52,6 +52,7 @@ BorderSurface {
       ? island.media.artist + " — " + island.media.title
       : (island.media.title || island.media.artist)
     if (island.media.album) line += "\n" + island.media.album
+    if (!line) line = (island.media.identity || "Spotify") + " · nothing playing"
     return line + "\nClick to open " + (island.media.identity || "the player")
   }
 
@@ -153,7 +154,8 @@ BorderSurface {
         Text {
           id: titleText
           width: parent.width
-          text: island.media.title || island.media.artist
+          // Spotify shows before a track is picked: then its name stands in.
+          text: island.media.title || island.media.artist || island.media.identity || "Spotify"
           color: island.fg
           elide: Text.ElideRight
           font.family: island.spaces.fontFamily

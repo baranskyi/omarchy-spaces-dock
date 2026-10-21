@@ -256,14 +256,17 @@ function isProxyPlayer(dbusName, desktopEntry) {
 // Picks the player the island shows. `players`: [{ key, spotify, proxy,
 // playing, stopped, hasTrack }] in Mpris order. "spotify" shows Spotify only;
 // "any" prefers whatever is playing, then the last player you controlled.
+// Spotify counts from the moment it runs, track or not; other players only
+// while they have a track loaded, so an idle browser never takes the island.
 // Returns an index into `players`, or -1.
 function pickPlayer(players, source, preferredKey) {
   var list = players || []
   var usable = []
   for (var i = 0; i < list.length; i++) {
     var p = list[i]
-    if (!p || p.stopped || !p.hasTrack) continue
+    if (!p) continue
     if (source === "spotify" && !p.spotify) continue
+    if (!p.spotify && (p.stopped || !p.hasTrack)) continue
     usable.push(i)
   }
   function find(test) {

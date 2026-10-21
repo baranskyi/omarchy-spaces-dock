@@ -1343,7 +1343,7 @@ Panel {
 
           ToggleSetting {
             label: "Show player"
-            description: "Cover art and track left of the dock while music plays"
+            description: "Shows while Spotify runs, with cover art and the current track"
             key: "showPlayer"
           }
 

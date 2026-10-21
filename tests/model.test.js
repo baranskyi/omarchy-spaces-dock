@@ -485,4 +485,25 @@ test("reorderIslands drops a pill before the first pill to its right", () => {
   assert.deepStrictEqual(M.reorderIslands(order, "limits", 1600, centers), order)
 })
 
+test("Grok token refresh is opt-in", () => {
+  assert.strictEqual(M.resolveSettings({}).limitGrokRefresh, false)
+  assert.strictEqual(M.resolveSettings({ limitGrokRefresh: true }).limitGrokRefresh, true)
+  const { spawnSync } = require("child_process")
+  const script = path.join(__dirname, "..", "llm_limits.py")
+  const run = spawnSync("python3", ["-I", "-B", "-c", [
+    "import sys, json, runpy",
+    "sys.argv=['llm_limits.py']",
+    "m=runpy.run_path(" + JSON.stringify(script) + ")",
+    "before=list(m['COLLECTORS']['grok'])",
+    "m['allow_grok_refresh']()",
+    "print(json.dumps([before, m['COLLECTORS']['grok']]))"
+  ].join("\n")], { encoding: "utf8", timeout: 15000 })
+  assert.strictEqual(run.status, 0, run.stderr)
+  const [before, after] = JSON.parse(run.stdout.trim())
+  assert.ok(before.includes("--no-refresh"), "read-only by default")
+  assert.ok(!after.includes("--no-refresh"), "--grok-refresh lifts it")
+  const help = spawnSync("python3", ["-I", "-B", path.join(__dirname, "..", "collectors", "grok-usage"), "--help"], { encoding: "utf8", timeout: 15000 })
+  assert.ok(help.stdout.includes("--no-refresh"))
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

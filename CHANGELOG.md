@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3
+
+- Renewing the Grok CLI token is now opt-in (`limitGrokRefresh`, "Refresh Grok sign-in"), off by default. Without it the bundled Grok collector only reads `~/.grok/auth.json`.
+- README: requirements, removal, and what the dock reads and writes.
+- Marketplace preview image.
+
 ## 0.5.2
 
 - Fix: left clicks on the player, AI limits and stats pills did nothing since 0.5.0. The drag layer over each pill now owns the press and hands it on as a click when the pointer does not move past the drag threshold, so play, previous, next, the system panel and refreshing work again.

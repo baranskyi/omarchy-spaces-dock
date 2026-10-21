@@ -6,7 +6,10 @@ fraction used, reset time). Collectors print Omarchy's agent usage record:
 
   claude  /usr/bin/omarchy-agent-usage-claude --limits-only   (ships with Omarchy)
   codex   /usr/bin/omarchy-agent-usage-codex --limits-only    (ships with Omarchy)
-  grok    collectors/grok-usage --limits-only                 (bundled here)
+  grok    collectors/grok-usage --limits-only --no-refresh    (bundled here)
+
+The Grok collector only reads ~/.grok/auth.json unless --grok-refresh is
+given; then it may renew an expiring Grok CLI token and rewrite that file.
 
 Output: {"updatedAt": ISO, "providers": {id: {"available", "plan", "status",
 "stale", "updatedAt", "limits": [{"label", "title", "percent", "resetsAt"}]}}}
@@ -27,8 +30,12 @@ HERE = Path(__file__).resolve().parent
 COLLECTORS = {
     "claude": ["/usr/bin/omarchy-agent-usage-claude", "--limits-only"],
     "codex": ["/usr/bin/omarchy-agent-usage-codex", "--limits-only"],
-    "grok": [sys.executable or "/usr/bin/python3", "-B", str(HERE / "collectors" / "grok-usage"), "--limits-only"],
+    "grok": [sys.executable or "/usr/bin/python3", "-B", str(HERE / "collectors" / "grok-usage"), "--limits-only", "--no-refresh"],
 }
+
+
+def allow_grok_refresh():
+    COLLECTORS["grok"] = [arg for arg in COLLECTORS["grok"] if arg != "--no-refresh"]
 
 
 def unavailable(status):
@@ -90,7 +97,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--providers", default=",".join(COLLECTORS), help="comma-separated: " + ",".join(COLLECTORS))
     parser.add_argument("--timeout", type=float, default=60.0)
+    parser.add_argument("--grok-refresh", action="store_true",
+                        help="let the Grok collector renew an expiring Grok CLI token (rewrites ~/.grok/auth.json)")
     args = parser.parse_args()
+    if args.grok_refresh:
+        allow_grok_refresh()
     providers = [p for p in args.providers.split(",") if p in COLLECTORS]
     results = {}
     if providers:

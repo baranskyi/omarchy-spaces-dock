@@ -34,12 +34,22 @@ The dock adds its own settings on top: height, alignment, which monitors, a bott
 
 It is self-contained: it does not need Spaces or any other plugin installed.
 
+## Requirements
+
+Everything it needs ships with Omarchy, and it needs no other plugin:
+
+- Omarchy 4 (Quattro) with omarchy-shell and Quickshell
+- `python3` for the system stats and AI limits collectors, standard library only
+- `btop` for right-click on the stats
+- For AI limits: Omarchy's `omarchy-agent-usage-claude` and `omarchy-agent-usage-codex`, plus Claude Code, the Codex CLI or the Grok CLI signed in. Each provider is optional.
+- Optional: `nvidia-smi` for an NVIDIA GPU, only queried while the GPU is awake
+
 ## Install
 
 From GitHub:
 
 ```bash
-omarchy plugin add https://github.com/baranskyi/omarchy-spaces-dock.git --enable --yes
+omarchy plugin add https://github.com/baranskyi/omarchy-spaces-dock.git --enable
 ```
 
 From a local checkout:
@@ -50,11 +60,23 @@ omarchy-shell shell rescanPlugins
 omarchy plugin enable io.github.baranskyi.spaces-dock
 ```
 
-The dock appears at once on every monitor. To remove it:
+The dock appears at once on every monitor.
+
+## Remove
+
+Turn it off and keep it installed:
 
 ```bash
 omarchy plugin disable io.github.baranskyi.spaces-dock
 ```
+
+Remove it completely:
+
+```bash
+omarchy plugin remove io.github.baranskyi.spaces-dock
+```
+
+The dock leaves nothing else behind except small caches in `~/.cache/omarchy/agent-usage`, which Omarchy's own usage collectors share.
 
 ## Use
 
@@ -102,6 +124,7 @@ AI limits:
 |---|---|---|
 | `showLimits` | bool | `true` |
 | `limitClaude`, `limitCodex`, `limitGrok` | bool | `true` |
+| `limitGrokRefresh` | bool, renew the Grok CLI token when it expires | `false` |
 
 In full-width mode the player sits at the left end of the strip, the limits and stats at the right end.
 
@@ -116,6 +139,10 @@ In full-width mode the player sits at the left end of the strip, the limits and 
 | Grok | `collectors/grok-usage`, bundled with the dock |
 
 The collectors use the sign-ins of Claude Code, the Codex CLI and the Grok CLI already on the machine, and ask each provider's usage endpoint. A provider you are not signed in to simply does not appear. Codex and Grok currently report a weekly window only, so their outer ring stays empty. If a refresh fails, the dock keeps the last numbers and dims the rings.
+
+The dock only reads these sign-ins. The Grok CLI's token expires within hours; turn on **Refresh Grok sign-in** (`limitGrokRefresh`) to let the bundled collector renew it the way the Grok CLI does, which rewrites `~/.grok/auth.json`. It is off by default.
+
+What the dock writes: its own entry in `~/.config/omarchy/shell.json`, only when you change a setting or drag a pill.
 
 The stats come from `stats.py`, a small Python script that prints a snapshot every two seconds and only collects the metrics that are on. With the GPU metric on, an NVIDIA card is only queried while it is already awake, so the dock never keeps a hybrid laptop's discrete GPU from sleeping.
 

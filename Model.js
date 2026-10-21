@@ -40,6 +40,7 @@ var DEFAULTS = {
   limitClaude: true,
   limitCodex: true,
   limitGrok: true,
+  limitGrokRefresh: false,   // opt-in: renew the Grok CLI token in ~/.grok/auth.json
 
   showIcons: true,            // master switch: app icons visible or hidden
   showApps: "hover",          // "all" | "active" | "hover" (active + hovered) | "hoverOnly"
@@ -129,6 +130,7 @@ function resolveSettings(raw) {
     limitClaude: bool(s.limitClaude, d.limitClaude),
     limitCodex: bool(s.limitCodex, d.limitCodex),
     limitGrok: bool(s.limitGrok, d.limitGrok),
+    limitGrokRefresh: bool(s.limitGrokRefresh, d.limitGrokRefresh),
     showIcons: bool(s.showIcons, d.showIcons),
     showApps: oneOf(s.showApps, SHOW_APPS, d.showApps),
     persistentWorkspaces: clampInt(s.persistentWorkspaces, 0, 10, d.persistentWorkspaces),

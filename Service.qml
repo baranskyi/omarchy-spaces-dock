@@ -119,6 +119,7 @@ Item {
   Limits {
     id: limitsModel
     providers: root.ready ? Model.limitsProvidersArg(root.cfg) : ""
+    grokRefresh: root.cfg.limitGrokRefresh
   }
 
   // ------------------------------------------------------------ docks

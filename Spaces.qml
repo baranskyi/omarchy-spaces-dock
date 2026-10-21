@@ -1373,6 +1373,12 @@ Panel {
           ToggleSetting { visible: root.cfg.showLimits; label: "Claude"; key: "limitClaude" }
           ToggleSetting { visible: root.cfg.showLimits; label: "OpenAI"; description: "Codex and ChatGPT"; key: "limitCodex" }
           ToggleSetting { visible: root.cfg.showLimits; label: "Grok"; key: "limitGrok" }
+          ToggleSetting {
+            visible: root.cfg.showLimits && root.cfg.limitGrok
+            label: "Refresh Grok sign-in"
+            description: "Renew the Grok CLI token in ~/.grok/auth.json when it expires"
+            key: "limitGrokRefresh"
+          }
 
           PanelSeparator { foreground: root.fg }
 

@@ -10,6 +10,8 @@ Item {
 
   // Comma-separated provider ids for llm_limits.py; "" stops refreshing.
   property string providers: ""
+  // Opt-in: lets the Grok collector renew the Grok CLI token in ~/.grok/auth.json.
+  property bool grokRefresh: false
   property int intervalMs: 5 * 60 * 1000
   property var records: ({})
   property double updatedMs: 0
@@ -19,7 +21,9 @@ Item {
 
   function refresh() {
     if (limits.providers === "" || collector.running) return
-    collector.command = ["/usr/bin/python3", "-B", limits.script, "--providers", limits.providers]
+    var command = ["/usr/bin/python3", "-B", limits.script, "--providers", limits.providers]
+    if (limits.grokRefresh) command.push("--grok-refresh")
+    collector.command = command
     collector.running = true
   }
 

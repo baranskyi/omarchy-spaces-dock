@@ -21,6 +21,7 @@ PanelWindow {
   readonly property bool hiddenWithBar: cfg.hideWithBar && service.barHidden
   readonly property bool full: cfg.alignment === "full"
   property alias spaces: spaces
+  property alias systemPanel: systemPanel
 
   visible: service.ready && selected && !hiddenWithBar
 
@@ -61,7 +62,9 @@ PanelWindow {
     readonly property string position: "bottom"
     readonly property bool vertical: false
     readonly property int barSize: dockWindow.dockHeight
-    readonly property color foreground: Color.bar.text
+    // `foreground` is read by popup content (settings sliders, system panel),
+    // which sits on the popup background; the dock itself uses barForeground.
+    readonly property color foreground: Color.popups.text
     readonly property color barForeground: Color.bar.text
     readonly property color background: Color.bar.background
     readonly property color urgent: Color.bar.active
@@ -148,8 +151,19 @@ PanelWindow {
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
     stats: dockWindow.service.stats
+    systemPanel: systemPanel
     spaces: spaces
     dock: dockWindow
+  }
+
+  // CPU, memory, network and disk dashboard above the stats island.
+  SystemPanel {
+    id: systemPanel
+    bar: dockBar
+    anchor: statsIsland
+    spaces: spaces
+    bottomMargin: dockWindow.cfg.bottomMargin
+    active: dockWindow.visible && statsIsland.shown
   }
 
   Spaces {

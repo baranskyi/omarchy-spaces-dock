@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Right-click the stats for a system panel, forked from the System Monitor plugin by Harshith Chennupati: host, uptime and load, CPU, memory and temperature cards, a two-minute chart, per-core load, network, disk and capacity. Its first button opens the dock settings instead of cycling a bar mode.
+- Stat pills are coloured by load: yellow from 80% or 85°C, red from 95% or 95°C, no colour otherwise.
+- The stats island is narrower.
+- IPC: `system` toggles the system panel.
+
 ## 0.2.0
 
 - A player island left of the dock: cover art, track, artist and playback buttons. Spotify by default, or any MPRIS player.

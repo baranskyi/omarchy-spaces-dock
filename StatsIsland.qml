@@ -5,14 +5,29 @@ import qs.Ui
 import "Model.js" as Model
 
 // System stats island: one small pill per enabled metric, in the style of the
-// workspace pills. Hover a pill for details; click opens btop.
+// workspace pills. A pill turns yellow under heavy load or heat and red at the
+// extreme (Model.statLevel). Hover for details, click for btop, right-click
+// for the system panel.
 BorderSurface {
   id: island
 
   required property var stats
   required property var spaces
   required property var dock
+  property var systemPanel: null
   property bool flat: false
+
+  // Opaque fills so both read on light and dark themes. Yellow is fixed: in
+  // many themes the palette's "yellow" (color3) is a dark orange.
+  readonly property color warningFill: "#f2c230"
+  readonly property color warningText: "#3a2c00"
+  readonly property color criticalFill: Color.urgent
+  readonly property color criticalText: "#ffffff"
+
+  function openPanel() {
+    if (island.systemPanel) island.systemPanel.toggle()
+    else island.spaces.toggle()
+  }
 
   readonly property var cfg: spaces.cfg
   readonly property var dm: spaces.dm
@@ -32,7 +47,7 @@ BorderSurface {
   MouseArea {
     anchors.fill: parent
     acceptedButtons: Qt.RightButton
-    onClicked: island.spaces.toggle()
+    onClicked: island.openPanel()
   }
 
   Row {
@@ -50,6 +65,9 @@ BorderSurface {
 
         required property var modelData
         readonly property bool tooltipHovered: statMouse.containsMouse
+        readonly property string level: Model.statLevel(modelData.key, island.stats.state)
+        readonly property color textColor: level === "critical" ? island.criticalText
+          : level === "warning" ? island.warningText : island.fg
 
         width: statRow.implicitWidth + island.pillPad * 2
         height: island.dm.pillThickness
@@ -57,7 +75,9 @@ BorderSurface {
         Rectangle {
           anchors.fill: parent
           radius: island.spaces.pillRadius
-          color: statMouse.containsMouse ? Util.alpha(island.fg, 0.12) : Util.alpha(island.fg, 0.06)
+          color: statPill.level === "critical" ? (statMouse.containsMouse ? Qt.lighter(island.criticalFill, 1.12) : island.criticalFill)
+            : statPill.level === "warning" ? (statMouse.containsMouse ? Qt.lighter(island.warningFill, 1.06) : island.warningFill)
+            : statMouse.containsMouse ? Util.alpha(island.fg, 0.12) : Util.alpha(island.fg, 0.06)
           Behavior on color { enabled: island.spaces.fastDur > 0; ColorAnimation { duration: island.spaces.fastDur } }
         }
 
@@ -69,7 +89,7 @@ BorderSurface {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: statPill.modelData.icon
-            color: island.fg
+            color: statPill.textColor
             opacity: island.stats.ready ? 1 : 0.5
             font.family: island.spaces.fontFamily
             font.pixelSize: Math.round(island.dm.labelPx * 0.95)
@@ -82,7 +102,7 @@ BorderSurface {
             width: Math.max(implicitWidth, widest.width)
             horizontalAlignment: Text.AlignRight
             text: Model.statText(statPill.modelData.key, island.stats.state)
-            color: island.fg
+            color: statPill.textColor
             opacity: island.stats.ready ? 1 : 0.5
             font.family: island.spaces.fontFamily
             font.pixelSize: Math.round(island.dm.labelPx * 0.78)
@@ -100,13 +120,17 @@ BorderSurface {
           id: statMouse
           anchors.fill: parent
           hoverEnabled: true
-          acceptedButtons: Qt.LeftButton
+          acceptedButtons: Qt.LeftButton | Qt.RightButton
           cursorShape: Qt.PointingHandCursor
-          onClicked: island.spaces.run("omarchy-launch-or-focus-tui btop")
+          onClicked: function(mouse) {
+            island.dock.hideTooltip(statPill)
+            if (mouse.button === Qt.RightButton) island.openPanel()
+            else island.spaces.run("omarchy-launch-or-focus-tui btop")
+          }
           onContainsMouseChanged: {
             if (containsMouse) {
               var detail = Model.statDetail(statPill.modelData.key, island.stats.state)
-              island.dock.showTooltip(statPill, statPill.modelData.label + "\n" + detail)
+              island.dock.showTooltip(statPill, statPill.modelData.label + "\n" + detail + "\nClick: btop · Right-click: system panel")
             } else {
               island.dock.hideTooltip(statPill)
             }

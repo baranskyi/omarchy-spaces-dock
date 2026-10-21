@@ -399,6 +399,45 @@ function statText(key, state) {
   return "—"
 }
 
+// Load levels for colouring stat pills. Same thresholds as the System
+// Monitor panel: usage turns yellow at 80% and red at 95%, temperatures at
+// 85°C and 95°C. Network and fans have no level.
+var LEVEL_USAGE = { warning: 80, critical: 95 }
+var LEVEL_TEMPERATURE = { warning: 85, critical: 95 }
+var LEVEL_RANK = { normal: 0, warning: 1, critical: 2 }
+
+function levelFor(value, limits) {
+  if (!isNum(value)) return "normal"
+  if (value >= limits.critical) return "critical"
+  if (value >= limits.warning) return "warning"
+  return "normal"
+}
+
+function worseLevel(a, b) {
+  return LEVEL_RANK[b] > LEVEL_RANK[a] ? b : a
+}
+
+// "normal" | "warning" | "critical" for a stat pill.
+function statLevel(key, state) {
+  var s = state || {}
+  if (s[key] === undefined) return "normal"
+  switch (key) {
+  case "cpu": return levelFor(s.cpu.percent, LEVEL_USAGE)
+  case "memory": return levelFor(s.memory.percent, LEVEL_USAGE)
+  case "storage": return s.storage.length ? levelFor(s.storage[0].percent, LEVEL_USAGE) : "normal"
+  case "temperature": return levelFor(s.temperature.cpu, LEVEL_TEMPERATURE)
+  case "gpu":
+    var level = "normal"
+    for (var i = 0; i < (s.gpu || []).length; i++) {
+      var g = s.gpu[i]
+      level = worseLevel(level, levelFor(g.percent, LEVEL_USAGE))
+      level = worseLevel(level, levelFor(g.temperature, LEVEL_TEMPERATURE))
+    }
+    return level
+  }
+  return "normal"
+}
+
 // Temperatures grouped by part, e.g. "CPU 64°C · SSD 40–45°C".
 function temperatureSummary(sensors) {
   var groups = {}
@@ -739,6 +778,7 @@ if (typeof module !== "undefined") {
     STATS: STATS, enabledStats: enabledStats, statsMetricsArg: statsMetricsArg,
     formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,
     primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
+    statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE,
     densityMetrics: densityMetrics, normalizeAddress: normalizeAddress,
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,

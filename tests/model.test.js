@@ -357,4 +357,26 @@ test("stats.py snapshot renders through statText", () => {
   assert.ok(/^(\d+°C|N\/A)$/.test(M.statText("temperature", state)))
 })
 
+test("statLevel: normal, warning at 80% / 85°C, critical at 95% / 95°C", () => {
+  const st = (o) => Object.assign({
+    cpu: { percent: 10 }, memory: { percent: 10 }, storage: [{ percent: 10 }],
+    temperature: { cpu: 50, sensors: [] }, gpu: [], network: { download: 9e9, upload: 9e9 }, fans: [{ value: 9000 }]
+  }, o)
+  assert.strictEqual(M.statLevel("cpu", st()), "normal")
+  assert.strictEqual(M.statLevel("cpu", st({ cpu: { percent: 79.9 } })), "normal")
+  assert.strictEqual(M.statLevel("cpu", st({ cpu: { percent: 80 } })), "warning")
+  assert.strictEqual(M.statLevel("cpu", st({ cpu: { percent: 95 } })), "critical")
+  assert.strictEqual(M.statLevel("memory", st({ memory: { percent: 90 } })), "warning")
+  assert.strictEqual(M.statLevel("storage", st({ storage: [{ percent: 97 }] })), "critical")
+  assert.strictEqual(M.statLevel("temperature", st({ temperature: { cpu: 84 } })), "normal")
+  assert.strictEqual(M.statLevel("temperature", st({ temperature: { cpu: 85 } })), "warning")
+  assert.strictEqual(M.statLevel("temperature", st({ temperature: { cpu: 99 } })), "critical")
+  assert.strictEqual(M.statLevel("gpu", st({ gpu: [{ percent: 20, temperature: 88 }, { percent: null, asleep: true }] })), "warning")
+  assert.strictEqual(M.statLevel("gpu", st({ gpu: [{ percent: 96 }] })), "critical")
+  assert.strictEqual(M.statLevel("network", st()), "normal")
+  assert.strictEqual(M.statLevel("fans", st()), "normal")
+  assert.strictEqual(M.statLevel("cpu", {}), "normal")
+  assert.strictEqual(M.statLevel("cpu", st({ cpu: { percent: null } })), "normal")
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

@@ -9,7 +9,7 @@ import "Model.js" as Model
 //   - settings: read from this plugin's top-level entry in shell.json and
 //     written back through the shell's updateEntryInline,
 //   - the media player and system stats shown by the dock's islands,
-//   - IPC: open/close/toggle/peek/agent/playPause/next/previous/copyBarSettings,
+//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous/copyBarSettings,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -156,6 +156,20 @@ Item {
     return out
   }
 
+  // The visible dock window on the focused monitor, else the first visible one.
+  function focusedDock() {
+    var windows = docks.instances
+    var focused = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name) : ""
+    var fallback = null
+    for (var i = 0; i < windows.length; i++) {
+      var w = windows[i]
+      if (!w || !w.visible) continue
+      if (w.screenName === focused) return w
+      if (!fallback) fallback = w
+    }
+    return fallback
+  }
+
   // The visible dock on the focused monitor, else the first visible one.
   function focusedSpaces() {
     var windows = docks.instances
@@ -184,6 +198,7 @@ Item {
       var s = root.focusedSpaces()
       return s && s.peek(workspace) ? "ok" : "empty"
     }
+    function system(): void { var d = root.focusedDock(); if (d) d.systemPanel.toggle() }
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
     function next(): string { return mediaModel.next() ? "ok" : "no player" }
     function previous(): string { return mediaModel.previous() ? "ok" : "no player" }

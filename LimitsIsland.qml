@@ -30,7 +30,17 @@ BorderSurface {
   }
   readonly property bool shown: providers.length > 0
   readonly property int inset: Math.max(0, Math.round((height - dm.pillThickness) / 2))
-  readonly property int ringSize: Math.round(dm.pillThickness * 0.86)
+  readonly property int ringSize: Math.round(dm.pillThickness * 0.94)
+
+  // Icon of the first installed app among the provider's candidates.
+  function logoFor(provider) {
+    var apps = provider.apps || []
+    for (var i = 0; i < apps.length; i++) {
+      var info = island.spaces.appInfo(apps[i])
+      if (info && info.source) return info.source
+    }
+    return ""
+  }
 
   visible: shown
   width: shown ? row.implicitWidth + inset * 2 + spaces.sp(4) * 2 : 0
@@ -73,6 +83,8 @@ BorderSurface {
           letterColor: island.fg
           trackColor: Util.alpha(island.fg, 0.12)
           letter: pair.modelData.letter
+          logo: island.logoFor(pair.modelData)
+          logoZoom: pair.modelData.logoZoom || 1.0
           fontFamily: island.spaces.fontFamily
           stale: !!(pair.record && pair.record.stale)
           scale: pairMouse.containsMouse ? 1.08 : 1
@@ -93,7 +105,7 @@ BorderSurface {
           onContainsMouseChanged: {
             if (containsMouse) {
               var tip = Model.limitTooltip(pair.modelData, pair.record, Date.now())
-              island.dock.showTooltip(pair, tip + "\nOuter ring: session · inner: weekly\nClick to refresh")
+              island.dock.showTooltip(pair, tip)
             } else {
               island.dock.hideTooltip(pair)
             }

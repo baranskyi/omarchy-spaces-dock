@@ -31,6 +31,10 @@ var DEFAULTS = {
   statNetwork: false,
   statFans: false,
 
+  // Left-to-right order of the pills. "spaces" (the workspace pill) always
+  // stays centered; the others sit beside it and can be dragged around.
+  islandOrder: ["player", "spaces", "limits", "stats"],
+
   // AI subscription limits island, between the dock and the system stats
   showLimits: true,
   limitClaude: true,
@@ -120,6 +124,7 @@ function resolveSettings(raw) {
     statStorage: bool(s.statStorage, d.statStorage),
     statNetwork: bool(s.statNetwork, d.statNetwork),
     statFans: bool(s.statFans, d.statFans),
+    islandOrder: normalizeIslandOrder(s.islandOrder),
     showLimits: bool(s.showLimits, d.showLimits),
     limitClaude: bool(s.limitClaude, d.limitClaude),
     limitCodex: bool(s.limitCodex, d.limitCodex),
@@ -469,14 +474,97 @@ function statDetail(key, state) {
   return ""
 }
 
+// ------------------------------------------------------------ pill order
+
+var ISLANDS = ["player", "spaces", "limits", "stats"]
+
+// A valid order: every known pill exactly once. Unknown ids are dropped and
+// missing ones go back to their default slot.
+function normalizeIslandOrder(raw) {
+  var out = []
+  var list = Array.isArray(raw) ? raw : []
+  for (var i = 0; i < list.length; i++) {
+    var id = String(list[i])
+    if (ISLANDS.indexOf(id) !== -1 && out.indexOf(id) === -1) out.push(id)
+  }
+  for (var j = 0; j < ISLANDS.length; j++) {
+    if (out.indexOf(ISLANDS[j]) === -1) out.splice(Math.min(j, out.length), 0, ISLANDS[j])
+  }
+  return out
+}
+
+// x of every pill but "spaces", which the caller centers.
+//   order:  left-to-right ids, including "spaces"
+//   widths: { id: width } — a hidden pill has width 0 and takes no gap
+//   dock:   { x, width } of the spaces pill
+//   full:   true in full-width mode, where the groups sit at the screen
+//           edges instead of hugging the spaces pill
+function islandLayout(order, widths, dock, gap, full, windowWidth) {
+  var at = order.indexOf("spaces")
+  var left = order.slice(0, at)
+  var right = order.slice(at + 1)
+  var out = {}
+  var x, i, id
+  if (full) {
+    x = gap
+    for (i = 0; i < left.length; i++) {
+      id = left[i]
+      out[id] = x
+      if (widths[id] > 0) x += widths[id] + gap
+    }
+    x = windowWidth - gap
+    for (i = right.length - 1; i >= 0; i--) {
+      id = right[i]
+      if (widths[id] > 0) x -= widths[id]
+      out[id] = x
+      if (widths[id] > 0) x -= gap
+    }
+    return out
+  }
+  x = dock.x - gap
+  for (i = left.length - 1; i >= 0; i--) {
+    id = left[i]
+    if (widths[id] > 0) x -= widths[id]
+    out[id] = x
+    if (widths[id] > 0) x -= gap
+  }
+  x = dock.x + dock.width + gap
+  for (i = 0; i < right.length; i++) {
+    id = right[i]
+    out[id] = x
+    if (widths[id] > 0) x += widths[id] + gap
+  }
+  return out
+}
+
+// New order after dropping `dragged` with its center at `dropCenter`.
+// `centers` gives the current center x of every other pill ("spaces"
+// included); the dragged pill lands before the first one to its right.
+function reorderIslands(order, dragged, dropCenter, centers) {
+  var others = order.filter(function(id) { return id !== dragged })
+  var index = 0
+  for (var i = 0; i < others.length; i++) {
+    var c = centers[others[i]]
+    if (typeof c === "number" && c < dropCenter) index = i + 1
+  }
+  others.splice(index, 0, dragged)
+  return others
+}
+
 // ------------------------------------------------------------ AI limits
 
 // One pair of rings per provider: the outer ring is the short session window
-// (5-hour), the inner ring the weekly window.
+// (5-hour), the inner ring the weekly window. `apps` are desktop entry ids
+// whose icon becomes the logo in the middle, first one installed wins; the
+// letter stands in when none is. No logo files ship with the plugin.
+// `logoZoom` crops the transparent padding some app icons carry.
 var LIMIT_PROVIDERS = [
-  { id: "claude", setting: "limitClaude", name: "Claude", letter: "C", color: "#d97757" },
-  { id: "codex", setting: "limitCodex", name: "OpenAI", letter: "O", color: "#10a37f" },
-  { id: "grok", setting: "limitGrok", name: "Grok", letter: "G", color: "#8b6cf0" }
+  { id: "claude", setting: "limitClaude", name: "Claude", letter: "C", color: "#d97757",
+    apps: ["com.anthropic.Claude", "claude-desktop", "claude"], logoZoom: 1.32 },
+  { id: "codex", setting: "limitCodex", name: "OpenAI", letter: "O", color: "#10a37f",
+    apps: ["codex", "openai-codex", "chatgpt", "com.openai.chatgpt"], logoZoom: 1.32 },
+  { id: "grok", setting: "limitGrok", name: "Grok", letter: "G", color: "#8b6cf0",
+    apps: ["grok-bot", "grok", "ai.x.grok"], logoZoom: 1.0 }
 ]
 
 function enabledLimitProviders(settings) {
@@ -545,23 +633,53 @@ function limitPercent(w) {
   return w && isNum(w.percent) ? Math.round(w.percent * 100) + "%" : "—"
 }
 
-// Tooltip for one provider's rings.
+function padRight(text, width) {
+  var s = String(text)
+  while (s.length < width) s += " "
+  return s
+}
+
+function padLeft(text, width) {
+  var s = String(text)
+  while (s.length < width) s = " " + s
+  return s
+}
+
+// Tooltip for one provider's rings, in columns for a monospace font:
+//   Claude · Max 20x
+//
+//   Session   5%  resets in 1h 56m
+//   Weekly    7%  resets in 6d 13h
+//   Fable     4%  resets in 6d 13h
+//
+//   Sign-in expired
 function limitTooltip(provider, record, nowMs) {
   var name = provider.name + (record && record.plan ? " · " + record.plan : "")
-  if (!record) return name + "\nReading limits…"
-  var lines = [name]
+  if (!record) return name + "\n\nReading limits…"
   var w = limitWindows(record)
-  function line(title, window) {
-    if (!window) return title + " —"
-    var reset = formatResetIn(window.resetsAt, nowMs)
-    return title + " " + limitPercent(window) + (reset ? " · resets " + reset : "")
+  var rows = [
+    { label: "Session", window: w.session, empty: "no 5-hour limit" },
+    { label: "Weekly", window: w.weekly, empty: "no weekly limit" }
+  ]
+  for (var i = 0; i < w.extras.length; i++) {
+    var title = String(w.extras[i].title || w.extras[i].label || "")
+    rows.push({ label: title.replace(/\s+weekly$/i, "") || title, window: w.extras[i], empty: "" })
   }
-  lines.push(line("Session", w.session) + (w.session ? "" : " (no session limit)"))
-  lines.push(line("Weekly", w.weekly))
-  for (var i = 0; i < w.extras.length; i++)
-    lines.push(line(w.extras[i].title || w.extras[i].label, w.extras[i]))
-  if (record.status) lines.push(record.status)
-  else if (record.stale) lines.push("Showing the last known numbers")
+  var labelWidth = 0
+  for (var r = 0; r < rows.length; r++) labelWidth = Math.max(labelWidth, rows[r].label.length)
+  var lines = [name, ""]
+  for (var k = 0; k < rows.length; k++) {
+    var row = rows[k]
+    if (!row.window) {
+      lines.push(padRight(row.label, labelWidth) + "     —  " + row.empty)
+      continue
+    }
+    var reset = formatResetIn(row.window.resetsAt, nowMs)
+    lines.push(padRight(row.label, labelWidth) + "  " + padLeft(limitPercent(row.window), 4)
+      + (reset ? "  resets " + reset : ""))
+  }
+  var note = record.status || (record.stale ? "Showing the last known numbers" : "")
+  if (note) lines.push("", note)
   return lines.join("\n")
 }
 
@@ -849,6 +967,8 @@ if (typeof module !== "undefined") {
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,
+    ISLANDS: ISLANDS, normalizeIslandOrder: normalizeIslandOrder, islandLayout: islandLayout,
+    reorderIslands: reorderIslands,
     densityMetrics: densityMetrics, normalizeAddress: normalizeAddress,
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,

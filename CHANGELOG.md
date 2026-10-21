@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Drag the player, AI limits and stats pills to reorder them on either side of the workspace pill, which always stays centered. The order is saved as `islandOrder`.
+- The AI limit rings show the Claude, ChatGPT and Grok Bot app logos in the middle, cut to a circle.
+- Tooltips with several lines are left-aligned, and the AI limits tooltip is a tidy table of window, percentage and time to reset.
+
 ## 0.4.0
 
 - An AI limits island between the dock and the system stats: two concentric rings each for Claude, OpenAI and Grok, outer for the 5-hour session, inner for the week. Tooltips show percentages and reset times; click refreshes.

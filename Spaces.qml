@@ -1300,6 +1300,15 @@ Panel {
           // ---- Dock
           SectionTitle { text: "DOCK" }
 
+          Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Drag the player, AI limits and stats pills to reorder them. The workspace pill stays centered."
+            color: Qt.darker(root.fg, 1.4)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
           SliderSetting { title: "DOCK HEIGHT"; key: "dockHeight"; minimum: 40; maximum: 96; suffix: "px" }
 
           ChoiceSetting {

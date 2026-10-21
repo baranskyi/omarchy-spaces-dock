@@ -111,6 +111,73 @@ PanelWindow {
   readonly property real islandGap: Style.space(10)
   readonly property real surfaceRadius: Style.cornerRadius <= 0 ? 0 : spaces.pillRadius + sidePad
 
+  // ------------------------------------------------------------ pill order
+
+  // The workspace pill (dockSurface) is always centered. The other pills sit
+  // beside it in cfg.islandOrder and can be dragged to a new place.
+  readonly property var islandItems: ({ player: playerIsland, limits: limitsIsland, stats: statsIsland })
+  readonly property var islandX: Model.islandLayout(
+    cfg.islandOrder,
+    { player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width },
+    { x: dockSurface.x, width: dockSurface.width },
+    islandGap, full, width)
+
+  property string draggingId: ""
+  property real dragX: 0
+  property real dragStartX: 0
+
+  function islandPos(id) {
+    return dockWindow.draggingId === id ? dockWindow.dragX : (dockWindow.islandX[id] || 0)
+  }
+
+  // Drops the dragged pill before the first pill to the right of its center.
+  function dropIsland(id) {
+    var item = dockWindow.islandItems[id]
+    var centers = { spaces: dockSurface.x + dockSurface.width / 2 }
+    for (var key in dockWindow.islandItems) {
+      if (key === id) continue
+      centers[key] = (dockWindow.islandX[key] || 0) + dockWindow.islandItems[key].width / 2
+    }
+    var next = Model.reorderIslands(dockWindow.cfg.islandOrder, id, dockWindow.dragX + item.width / 2, centers)
+    if (JSON.stringify(next) !== JSON.stringify(dockWindow.cfg.islandOrder))
+      spaces.applySetting({ islandOrder: next })
+    dockWindow.draggingId = ""
+  }
+
+  // A transparent layer over a pill that turns a horizontal drag into a move.
+  // Clicks and hovers pass through to the pill; the drag only takes over once
+  // the pointer has moved past the drag threshold.
+  component IslandDrag: Item {
+    id: dragLayer
+    required property Item island
+    required property string islandId
+
+    x: island.x
+    y: island.y
+    width: island.width
+    height: island.height
+    visible: island.visible
+    z: 50
+
+    DragHandler {
+      target: null
+      yAxis.enabled: false
+      cursorShape: active ? Qt.ClosedHandCursor : Qt.ArrowCursor
+      onActiveChanged: {
+        if (active) {
+          dockWindow.hideTooltip(dockWindow.tooltipTarget)
+          dockWindow.dragStartX = dragLayer.island.x
+          dockWindow.dragX = dragLayer.island.x
+          dockWindow.draggingId = dragLayer.islandId
+        } else if (dockWindow.draggingId === dragLayer.islandId) {
+          dockWindow.dropIsland(dragLayer.islandId)
+        }
+      }
+      // Scene coordinates: the layer moves with the pill, so local ones would feed back.
+      onCentroidChanged: if (active) dockWindow.dragX = dockWindow.dragStartX + centroid.scenePosition.x - centroid.scenePressPosition.x
+    }
+  }
+
   BorderSurface {
     id: dockSurface
     anchors.bottom: parent.bottom
@@ -130,13 +197,15 @@ PanelWindow {
     }
   }
 
-  // Player on the left and system stats on the right: separate pills beside
-  // the centered dock, or the ends of the strip in full-width mode.
+  // Player, AI limits and system stats: separate pills beside the centered
+  // dock (or at the ends of the strip in full-width mode), placed by islandX.
   PlayerIsland {
     id: playerIsland
     anchors.bottom: parent.bottom
     height: parent.height
-    x: dockWindow.full ? dockWindow.islandGap : dockSurface.x - dockWindow.islandGap - width
+    x: dockWindow.islandPos("player")
+    z: dockWindow.draggingId === "player" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "player" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
     media: dockWindow.service.media
@@ -144,14 +213,13 @@ PanelWindow {
     dock: dockWindow
   }
 
-  // AI limits sit between the dock and the stats.
   LimitsIsland {
     id: limitsIsland
     anchors.bottom: parent.bottom
     height: parent.height
-    x: dockWindow.full
-      ? dockWindow.width - dockWindow.islandGap - width - (statsIsland.shown ? statsIsland.width + dockWindow.islandGap : 0)
-      : dockSurface.x + dockSurface.width + dockWindow.islandGap
+    x: dockWindow.islandPos("limits")
+    z: dockWindow.draggingId === "limits" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "limits" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
     limits: dockWindow.service.limits
@@ -163,9 +231,9 @@ PanelWindow {
     id: statsIsland
     anchors.bottom: parent.bottom
     height: parent.height
-    x: dockWindow.full ? dockWindow.width - dockWindow.islandGap - width
-      : limitsIsland.shown ? limitsIsland.x + limitsIsland.width + dockWindow.islandGap
-      : dockSurface.x + dockSurface.width + dockWindow.islandGap
+    x: dockWindow.islandPos("stats")
+    z: dockWindow.draggingId === "stats" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "stats" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
     stats: dockWindow.service.stats
@@ -173,6 +241,10 @@ PanelWindow {
     spaces: spaces
     dock: dockWindow
   }
+
+  IslandDrag { island: playerIsland; islandId: "player" }
+  IslandDrag { island: limitsIsland; islandId: "limits" }
+  IslandDrag { island: statsIsland; islandId: "stats" }
 
   // CPU, memory, network and disk dashboard above the stats island.
   SystemPanel {
@@ -282,7 +354,8 @@ PanelWindow {
         color: Color.tooltip.text
         font.family: Style.font.family
         font.pixelSize: Style.font.body
-        horizontalAlignment: Text.AlignHCenter
+        // Multi-line tooltips (stats details, AI limits) read as columns.
+        horizontalAlignment: lineCount > 1 ? Text.AlignLeft : Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
       }
     }

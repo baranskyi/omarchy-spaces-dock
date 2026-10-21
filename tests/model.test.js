@@ -373,6 +373,7 @@ test("limits settings default on and give the collector's provider list", () => 
   assert.strictEqual(M.limitsProvidersArg(d), "claude,codex,grok")
   assert.strictEqual(M.limitsProvidersArg(M.resolveSettings({ limitCodex: false })), "claude,grok")
   assert.strictEqual(M.limitsProvidersArg(M.resolveSettings({ showLimits: false })), "")
+  for (const p of M.LIMIT_PROVIDERS) assert.ok(Array.isArray(p.apps) && p.apps.length > 0, p.id + " has logo candidates")
 })
 
 test("limitWindows sorts session, weekly and model-specific windows", () => {
@@ -416,10 +417,18 @@ test("formatResetIn and limitTooltip", () => {
     { label: "Weekly (7-day)", percent: 0.07, resetsAt: "2026-10-28T01:00:00Z" },
     { label: "Fable Weekly", title: "Fable Weekly", percent: 0.04, resetsAt: "2026-10-28T01:00:00Z" }
   ] }, now)
-  assert.strictEqual(tip, "Claude · Max 20x\nSession 4% · resets in 2h 27m\nWeekly 7% · resets in 6d 14h\nFable Weekly 4% · resets in 6d 14h")
+  assert.strictEqual(tip, [
+    "Claude · Max 20x",
+    "",
+    "Session    4%  resets in 2h 27m",
+    "Weekly     7%  resets in 6d 14h",
+    "Fable      4%  resets in 6d 14h"
+  ].join("\n"))
   const grokTip = M.limitTooltip(M.LIMIT_PROVIDERS[2], { plan: "SuperGrok Plus", status: "", limits: [{ label: "Weekly (7-day)", percent: 0.11 }] }, now)
-  assert.ok(grokTip.indexOf("Session — (no session limit)") !== -1)
-  assert.strictEqual(M.limitTooltip(M.LIMIT_PROVIDERS[1], null, now), "OpenAI\nReading limits…")
+  assert.strictEqual(grokTip, ["Grok · SuperGrok Plus", "", "Session     —  no 5-hour limit", "Weekly    11%"].join("\n"))
+  const expired = M.limitTooltip(M.LIMIT_PROVIDERS[0], { plan: "Max 20x", status: "Sign-in expired", limits: [{ label: "Weekly (7-day)", percent: 0.07 }] }, now)
+  assert.ok(expired.endsWith("\n\nSign-in expired"))
+  assert.strictEqual(M.limitTooltip(M.LIMIT_PROVIDERS[1], null, now), "OpenAI\n\nReading limits…")
 })
 
 test("llm_limits.py reports a missing collector without crashing", () => {
@@ -436,6 +445,38 @@ test("llm_limits.py reports a missing collector without crashing", () => {
   assert.strictEqual(out.available, false)
   assert.ok(/not found/.test(out.status))
   assert.deepStrictEqual(out.limits, [])
+})
+
+test("normalizeIslandOrder keeps every pill once and restores missing ones", () => {
+  assert.deepStrictEqual(M.resolveSettings({}).islandOrder, ["player", "spaces", "limits", "stats"])
+  assert.deepStrictEqual(M.normalizeIslandOrder(["stats", "spaces", "player", "limits"]), ["stats", "spaces", "player", "limits"])
+  const fixed = M.normalizeIslandOrder(["stats", "bogus", "stats", "spaces"])
+  assert.deepStrictEqual(fixed.slice().sort(), ["limits", "player", "spaces", "stats"])
+  assert.strictEqual(fixed.indexOf("stats"), fixed.lastIndexOf("stats"))
+  assert.deepStrictEqual(M.normalizeIslandOrder("nope"), ["player", "spaces", "limits", "stats"])
+})
+
+test("islandLayout hugs the centered spaces pill and skips hidden pills", () => {
+  const widths = { player: 268, limits: 150, stats: 300 }
+  const dock = { x: 1000, width: 500 }
+  assert.deepStrictEqual(M.islandLayout(["player", "spaces", "limits", "stats"], widths, dock, 12, false, 2560),
+    { player: 720, limits: 1512, stats: 1674 })
+  assert.deepStrictEqual(M.islandLayout(["stats", "player", "spaces", "limits"], widths, dock, 12, false, 2560),
+    { stats: 408, player: 720, limits: 1512 })
+  const hidden = M.islandLayout(["player", "spaces", "limits", "stats"], { player: 0, limits: 150, stats: 300 }, dock, 12, false, 2560)
+  assert.strictEqual(hidden.limits, 1512)
+  assert.strictEqual(hidden.stats, 1674)
+  assert.deepStrictEqual(M.islandLayout(["player", "spaces", "limits", "stats"], widths, dock, 12, true, 2560),
+    { player: 12, limits: 2086, stats: 2248 })
+})
+
+test("reorderIslands drops a pill before the first pill to its right", () => {
+  const order = ["player", "spaces", "limits", "stats"]
+  const centers = { player: 854, spaces: 1250, limits: 1587, stats: 1824 }
+  assert.deepStrictEqual(M.reorderIslands(order, "stats", 1400, centers), ["player", "spaces", "stats", "limits"])
+  assert.deepStrictEqual(M.reorderIslands(order, "stats", 600, centers), ["stats", "player", "spaces", "limits"])
+  assert.deepStrictEqual(M.reorderIslands(order, "player", 1300, centers), ["spaces", "player", "limits", "stats"])
+  assert.deepStrictEqual(M.reorderIslands(order, "limits", 1600, centers), order)
 })
 
 if (failed) { console.log(failed + " failed"); process.exit(1) }

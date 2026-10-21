@@ -14,7 +14,7 @@ Everything Spaces does works here too:
 Three islands sit beside the dock as separate pills:
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Click the cover or title to jump to the player's window. It hides when nothing is playing.
-- **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh.
+- **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
 - **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it for the system panel, right-click it to open btop.
 
 A stat pill has no colour while things are normal. It turns yellow under heavy load or heat and red at the extreme:
@@ -27,6 +27,8 @@ A stat pill has no colour while things are normal. It turns yellow under heavy l
 Network and fans are never coloured.
 
 The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
+
+Drag the player, AI limits and stats pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
@@ -79,6 +81,7 @@ Dock settings:
 | `bottomMargin` | 0 to 64 px | 0 |
 | `reserveSpace` | `true` (windows stop above the dock), `false` (floats over them) | `true` |
 | `hideWithBar` | `true` hides the dock while the bar is toggled off | `true` |
+| `islandOrder` | left-to-right ids: `player`, `spaces`, `limits`, `stats` | `["player", "spaces", "limits", "stats"]` |
 
 A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
 

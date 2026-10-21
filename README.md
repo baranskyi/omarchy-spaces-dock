@@ -29,7 +29,7 @@ The system panel opens above the stats on click. It is the System Monitor panel:
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
-It runs alongside the Spaces bar widget. Use either one, or both.
+It is self-contained: it does not need Spaces or any other plugin installed.
 
 ## Install
 
@@ -66,7 +66,7 @@ omarchy plugin disable io.github.baranskyi.spaces-dock
 
 ## Settings
 
-Settings live on the plugin's entry in the `plugins` list of `~/.config/omarchy/shell.json`. The settings panel writes them there. If Spaces is in your bar, the `copyBarSettings` IPC call below copies its style to the dock. Icon size and the dock-only settings are not copied.
+Settings live on the plugin's entry in the `plugins` list of `~/.config/omarchy/shell.json`. The settings panel writes them there.
 
 Dock settings:
 
@@ -139,12 +139,11 @@ omarchy-shell io.github.baranskyi.spaces-dock toggle
 | `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
 | `playPause`, `next`, `previous` | Control the player shown on the dock |
 | `system` | Toggle the system panel on the focused monitor's dock |
-| `copyBarSettings` | Copy the style of the Spaces bar widget |
 | `agent <session> <state> <pids>` | Used by the agent hook below |
 
 ## Agent badges
 
-Badges need Claude Code hooks. Add these to `~/.claude/settings.json`. The hook notifies the dock and, if installed, the Spaces bar widget, so one set of hooks serves both.
+Badges need Claude Code hooks. Add these to `~/.claude/settings.json`.
 
 ```json
 "hooks": {

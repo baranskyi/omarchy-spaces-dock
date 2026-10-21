@@ -228,44 +228,6 @@ function pluginEntry(rawJson, id) {
   return null
 }
 
-// The Spaces bar widget this dock was forked from.
-var BAR_WIDGET_ID = "tornikegomareli.spaces"
-
-// Settings that belong to the dock alone and never come from the bar widget.
-// iconSize is here too: the bar's sizes are tuned for a 26px bar.
-var DOCK_ONLY_KEYS = ["dockHeight", "bottomMargin", "reserveSpace", "alignment", "monitors", "hideWithBar", "iconSize",
-  "showPlayer", "playerSource", "playerControls", "showStats",
-  "statCpu", "statMemory", "statTemperature", "statGpu", "statStorage", "statNetwork", "statFans"]
-
-// Finds a widget's entry in the bar layout of the raw shell.json text.
-function barWidgetEntry(rawJson, id) {
-  var config
-  try { config = JSON.parse(String(rawJson || "")) } catch (e) { return null }
-  var layout = config && config.bar && config.bar.layout
-  if (!layout || typeof layout !== "object") return null
-  var sections = ["left", "center", "right"]
-  for (var s = 0; s < sections.length; s++) {
-    var list = layout[sections[s]]
-    if (!Array.isArray(list)) continue
-    for (var i = 0; i < list.length; i++) {
-      var entry = list[i]
-      if (entry && typeof entry === "object" && entry.id === id) return entry
-    }
-  }
-  return null
-}
-
-// The shared Spaces settings from a bar widget entry, as a settings delta.
-function settingsFromBarEntry(entry) {
-  var delta = {}
-  if (!entry || typeof entry !== "object") return delta
-  for (var key in DEFAULTS) {
-    if (DOCK_ONLY_KEYS.indexOf(key) !== -1) continue
-    if (entry[key] !== undefined && entry[key] !== null) delta[key] = entry[key]
-  }
-  return delta
-}
-
 // ------------------------------------------------------------ player
 
 function isSpotifyPlayer(identity, desktopEntry, dbusName) {
@@ -772,8 +734,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     PLUGIN_ID: PLUGIN_ID, DEFAULTS: DEFAULTS, resolveSettings: resolveSettings, showsApps: showsApps,
     dockMetrics: dockMetrics, primaryScreenName: primaryScreenName, screenSelected: screenSelected,
-    pluginEntry: pluginEntry, BAR_WIDGET_ID: BAR_WIDGET_ID,
-    barWidgetEntry: barWidgetEntry, settingsFromBarEntry: settingsFromBarEntry,
+    pluginEntry: pluginEntry,
     isSpotifyPlayer: isSpotifyPlayer, isProxyPlayer: isProxyPlayer, pickPlayer: pickPlayer,
     STATS: STATS, enabledStats: enabledStats, statsMetricsArg: statsMetricsArg,
     formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,

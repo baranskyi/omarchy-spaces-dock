@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.baranskyi.spaces-dock",
   "name": "Spaces Dock",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": "Slava Baranskyi (fork of Spaces by Tornike Gomareli)",
   "license": "MIT",
   "description": "A large workspace dock at the bottom of the screen: the Spaces switcher with app icons, live workspace previews and agent badges, plus a Spotify player, system stats and a system panel. Right-click it for settings.",

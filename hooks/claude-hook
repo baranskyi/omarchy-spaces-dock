@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Tells Spaces Dock (and the Spaces bar widget, if installed) what a Claude
-# Code session is doing.
+# Tells Spaces Dock what a Claude Code session is doing.
 # Usage (from Claude Code hooks): claude-hook <working|waiting|done|end>
 
 state="$1"
@@ -17,7 +16,5 @@ while [[ $pid -gt 1 && -r /proc/$pid/stat ]]; do
   pid=$(cut -d' ' -f2 <<<"$stat")
 done
 
-for target in io.github.baranskyi.spaces-dock tornikegomareli.spaces; do
-  omarchy-shell -q "$target" agent "$session" "$state" "$pids" >/dev/null 2>&1 &
-done
+omarchy-shell -q io.github.baranskyi.spaces-dock agent "$session" "$state" "$pids" >/dev/null 2>&1 &
 exit 0

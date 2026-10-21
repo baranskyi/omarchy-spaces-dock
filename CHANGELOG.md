@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Removed the last links to the Spaces bar widget: the `copyBarSettings` IPC call and the hook's extra notification. The dock depends on no other plugin.
+
 ## 0.3.1
 
 - Mouse buttons on the stats swapped: click opens the system panel, right-click opens btop.

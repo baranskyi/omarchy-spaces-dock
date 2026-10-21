@@ -9,7 +9,7 @@ import "Model.js" as Model
 //   - settings: read from this plugin's top-level entry in shell.json and
 //     written back through the shell's updateEntryInline,
 //   - the media player and system stats shown by the dock's islands,
-//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous/copyBarSettings,
+//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -64,31 +64,12 @@ Item {
     root.persist(entry)
   }
 
-  // Settings of the Spaces bar widget, if it is in the bar, as a delta of
-  // the settings both share. Empty when there is nothing to copy.
-  property var barWidgetSettings: ({})
-
-  function readBarWidget(raw) {
-    root.barWidgetSettings = Model.settingsFromBarEntry(Model.barWidgetEntry(raw, Model.BAR_WIDGET_ID))
-  }
-
-  function copyBarSettings() {
-    var delta = root.barWidgetSettings
-    if (Object.keys(delta).length === 0) return false
-    root.applySetting(delta)
-    return true
-  }
-
   FileView {
     id: configFile
     path: root.configPath
     watchChanges: true
     printErrors: false
-    onLoaded: {
-      var raw = configFile.text()
-      root.readConfig(raw)
-      root.readBarWidget(raw)
-    }
+    onLoaded: root.readConfig(configFile.text())
     onFileChanged: configFile.reload()
     onLoadFailed: function(error) { root.ready = true }
   }
@@ -202,7 +183,6 @@ Item {
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
     function next(): string { return mediaModel.next() ? "ok" : "no player" }
     function previous(): string { return mediaModel.previous() ? "ok" : "no player" }
-    function copyBarSettings(): string { return root.copyBarSettings() ? "ok" : "no bar widget settings" }
     function agent(session: string, state: string, pids: string): void {
       // Every monitor's dock tracks agents, so relay to all of them.
       var all = root.allSpaces()

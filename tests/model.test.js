@@ -245,15 +245,6 @@ test("pluginEntry finds the top-level plugins entry", () => {
   assert.strictEqual(M.pluginEntry("", M.PLUGIN_ID), null)
 })
 
-test("settingsFromBarEntry copies shared settings, never dock-only ones", () => {
-  const raw = JSON.stringify({ bar: { layout: { left: [{ id: "omarchy.menu" }, { id: M.BAR_WIDGET_ID, activeStyle: "accent", density: "roomy", hideEmpty: true, iconSize: 16, dockHeight: 30, bogus: 1 }] } } })
-  const entry = M.barWidgetEntry(raw, M.BAR_WIDGET_ID)
-  assert.strictEqual(entry.activeStyle, "accent")
-  assert.deepStrictEqual(M.settingsFromBarEntry(entry), { activeStyle: "accent", density: "roomy", hideEmpty: true })
-  assert.strictEqual(M.barWidgetEntry("{", M.BAR_WIDGET_ID), null)
-  assert.strictEqual(M.barWidgetEntry(JSON.stringify({ bar: {} }), M.BAR_WIDGET_ID), null)
-  assert.deepStrictEqual(M.settingsFromBarEntry(null), {})
-})
 
 test("player and stats settings default and validate", () => {
   const d = M.resolveSettings({})
@@ -267,9 +258,6 @@ test("player and stats settings default and validate", () => {
   assert.strictEqual(M.resolveSettings({ playerSource: "any" }).playerSource, "any")
 })
 
-test("island settings are never copied from the bar widget", () => {
-  assert.deepStrictEqual(M.settingsFromBarEntry({ id: "x", showPlayer: false, statGpu: true, density: "roomy" }), { density: "roomy" })
-})
 
 test("isSpotifyPlayer and isProxyPlayer", () => {
   assert.strictEqual(M.isSpotifyPlayer("Spotify", "", ""), true)

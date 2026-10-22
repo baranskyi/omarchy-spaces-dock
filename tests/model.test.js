@@ -454,12 +454,14 @@ test("llm_limits.py reports a missing collector without crashing", () => {
 })
 
 test("normalizeIslandOrder keeps every pill once and restores missing ones", () => {
-  assert.deepStrictEqual(M.resolveSettings({}).islandOrder, ["player", "spaces", "limits", "stats"])
-  assert.deepStrictEqual(M.normalizeIslandOrder(["stats", "spaces", "player", "limits"]), ["stats", "spaces", "player", "limits"])
+  assert.deepStrictEqual(M.resolveSettings({}).islandOrder, ["quickfile", "player", "spaces", "limits", "stats"])
+  assert.deepStrictEqual(M.normalizeIslandOrder(["stats", "spaces", "player", "limits", "quickfile"]), ["stats", "spaces", "player", "limits", "quickfile"])
+  // An order saved before the QuickFile pill existed gets it back at its default slot.
+  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats"]), ["quickfile", "player", "spaces", "limits", "stats"])
   const fixed = M.normalizeIslandOrder(["stats", "bogus", "stats", "spaces"])
-  assert.deepStrictEqual(fixed.slice().sort(), ["limits", "player", "spaces", "stats"])
+  assert.deepStrictEqual(fixed.slice().sort(), ["limits", "player", "quickfile", "spaces", "stats"])
   assert.strictEqual(fixed.indexOf("stats"), fixed.lastIndexOf("stats"))
-  assert.deepStrictEqual(M.normalizeIslandOrder("nope"), ["player", "spaces", "limits", "stats"])
+  assert.deepStrictEqual(M.normalizeIslandOrder("nope"), ["quickfile", "player", "spaces", "limits", "stats"])
 })
 
 test("islandLayout hugs the centered spaces pill and skips hidden pills", () => {
@@ -504,6 +506,25 @@ test("Grok token refresh is opt-in", () => {
   assert.ok(!after.includes("--no-refresh"), "--grok-refresh lifts it")
   const help = spawnSync("python3", ["-I", "-B", path.join(__dirname, "..", "collectors", "grok-usage"), "--help"], { encoding: "utf8", timeout: 15000 })
   assert.ok(help.stdout.includes("--no-refresh"))
+})
+
+test("quickfileState reads omarchy plugin list --json", () => {
+  const list = enabled => JSON.stringify([{ id: "omarchy.menu", enabled: true }, { id: "m0sthatedman.quickfile", enabled }])
+  assert.strictEqual(M.quickfileState(list(true)), "enabled")
+  assert.strictEqual(M.quickfileState(list(false)), "disabled")
+  assert.strictEqual(M.quickfileState(JSON.stringify([{ id: "omarchy.menu", enabled: true }])), "missing")
+  assert.strictEqual(M.quickfileState("not json"), "unknown")
+  assert.strictEqual(M.quickfileState("{}"), "unknown")
+})
+
+test("quickfileCommand opens, enables or offers to install QuickFile", () => {
+  assert.strictEqual(M.quickfileCommand("enabled"), "omarchy-shell shell toggle m0sthatedman.quickfile")
+  assert.ok(M.quickfileCommand("disabled").startsWith("omarchy plugin enable m0sthatedman.quickfile && "))
+  const install = M.quickfileCommand("missing")
+  assert.ok(install.startsWith("omarchy-launch-floating-terminal-with-presentation omarchy plugin add https://github.com/baranskyi/omarchy-quickfile.git"))
+  assert.ok(!install.includes("--yes"), "the installer must still ask for consent")
+  assert.strictEqual(M.quickfileCommand("unknown"), "")
+  assert.ok(M.quickfileTooltip("missing").includes("marketplace"))
 })
 
 if (failed) { console.log(failed + " failed"); process.exit(1) }

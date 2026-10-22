@@ -33,7 +33,10 @@ var DEFAULTS = {
 
   // Left-to-right order of the pills. "spaces" (the workspace pill) always
   // stays centered; the others sit beside it and can be dragged around.
-  islandOrder: ["player", "spaces", "limits", "stats"],
+  islandOrder: ["quickfile", "player", "spaces", "limits", "stats"],
+
+  // QuickFile button pill: opens the QuickFile plugin, or offers to install it
+  showQuickfile: true,
 
   // AI subscription limits island, between the dock and the system stats
   showLimits: true,
@@ -126,6 +129,7 @@ function resolveSettings(raw) {
     statNetwork: bool(s.statNetwork, d.statNetwork),
     statFans: bool(s.statFans, d.statFans),
     islandOrder: normalizeIslandOrder(s.islandOrder),
+    showQuickfile: bool(s.showQuickfile, d.showQuickfile),
     showLimits: bool(s.showLimits, d.showLimits),
     limitClaude: bool(s.limitClaude, d.limitClaude),
     limitCodex: bool(s.limitCodex, d.limitCodex),
@@ -481,7 +485,7 @@ function statDetail(key, state) {
 
 // ------------------------------------------------------------ pill order
 
-var ISLANDS = ["player", "spaces", "limits", "stats"]
+var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats"]
 
 // A valid order: every known pill exactly once. Unknown ids are dropped and
 // missing ones go back to their default slot.
@@ -554,6 +558,44 @@ function reorderIslands(order, dragged, dropCenter, centers) {
   }
   others.splice(index, 0, dragged)
   return others
+}
+
+// ------------------------------------------------------------ QuickFile
+
+// The QuickFile plugin, an optional companion: the dock only runs its public
+// commands and never loads its code.
+var QUICKFILE = {
+  id: "m0sthatedman.quickfile",
+  repo: "https://github.com/baranskyi/omarchy-quickfile.git",
+  toggle: "omarchy-shell shell toggle m0sthatedman.quickfile"
+}
+
+// "enabled" | "disabled" | "missing" | "unknown" from `omarchy plugin list --json`.
+function quickfileState(listJson) {
+  var list
+  try { list = JSON.parse(String(listJson || "")) } catch (e) { return "unknown" }
+  if (!Array.isArray(list)) return "unknown"
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i]
+    if (p && p.id === QUICKFILE.id) return p.enabled === true ? "enabled" : "disabled"
+  }
+  return "missing"
+}
+
+// Shell command for a click on the QuickFile pill in a given state.
+function quickfileCommand(state) {
+  if (state === "enabled") return QUICKFILE.toggle
+  if (state === "disabled") return "omarchy plugin enable " + QUICKFILE.id + " && sleep 1 && " + QUICKFILE.toggle
+  if (state === "missing")
+    return "omarchy-launch-floating-terminal-with-presentation omarchy plugin add " + QUICKFILE.repo + " --enable"
+  return ""
+}
+
+function quickfileTooltip(state) {
+  if (state === "enabled") return "QuickFile\nClick to open or close"
+  if (state === "disabled") return "QuickFile is turned off\nClick to turn it on and open it"
+  if (state === "missing") return "QuickFile is not installed\nClick to install it from the Omarchy plugin marketplace"
+  return "QuickFile\nChecking whether it is installed…"
 }
 
 // ------------------------------------------------------------ AI limits
@@ -973,6 +1015,7 @@ if (typeof module !== "undefined") {
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,
     ISLANDS: ISLANDS, normalizeIslandOrder: normalizeIslandOrder, islandLayout: islandLayout,
+    QUICKFILE: QUICKFILE, quickfileState: quickfileState, quickfileCommand: quickfileCommand, quickfileTooltip: quickfileTooltip,
     reorderIslands: reorderIslands,
     densityMetrics: densityMetrics, normalizeAddress: normalizeAddress,
     agentStates: agentStates, parsePids: parsePids,

@@ -11,7 +11,9 @@ Everything Spaces does works here too:
 - Scrolling switches workspaces, and middle-click can close a window.
 - Right-click the dock to open its settings.
 
-Three islands sit beside the dock as separate pills:
+Four islands sit beside the dock as separate pills:
+
+- **QuickFile button, far left:** opens the [QuickFile](https://github.com/baranskyi/omarchy-quickfile) sidebar plugin, like its SUPER+B binding. If QuickFile is installed but turned off, a click turns it on. If it is not installed, a click opens a terminal with `omarchy plugin add` for it from the Omarchy plugin marketplace, which asks before installing anything. The dock never loads QuickFile's code.
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Spotify appears as soon as it starts, even before a track is picked; other players only while they have a track. Click the cover or title to jump to the player's window.
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
@@ -28,7 +30,7 @@ Network and fans are never coloured.
 
 The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
 
-Drag the player, AI limits and stats pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
+Drag the QuickFile, player, AI limits and stats pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
@@ -103,7 +105,8 @@ Dock settings:
 | `bottomMargin` | 0 to 64 px | 0 |
 | `reserveSpace` | `true` (windows stop above the dock), `false` (floats over them) | `true` |
 | `hideWithBar` | `true` hides the dock while the bar is toggled off | `true` |
-| `islandOrder` | left-to-right ids: `player`, `spaces`, `limits`, `stats` | `["player", "spaces", "limits", "stats"]` |
+| `islandOrder` | left-to-right ids: `quickfile`, `player`, `spaces`, `limits`, `stats` | `["quickfile", "player", "spaces", "limits", "stats"]` |
+| `showQuickfile` | bool, the QuickFile button pill | `true` |
 
 A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
 
@@ -189,6 +192,7 @@ omarchy-shell io.github.baranskyi.spaces-dock toggle
 | `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
 | `playPause`, `next`, `previous` | Control the player shown on the dock |
 | `system` | Toggle the system panel on the focused monitor's dock |
+| `quickfile` | Same as clicking the QuickFile button |
 | `refreshLimits` | Fetch the AI limits now |
 | `agent <session> <state> <pids>` | Used by the agent hook below |
 
@@ -217,6 +221,7 @@ manifest.json        service plugin, keepLoaded
 Service.qml          settings from shell.json, IPC, player and stats models, one DockWindow per screen
 DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tooltips, a stand-in bar for Spaces
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
+QuickfileIsland.qml  QuickFile button pill
 PlayerIsland.qml     now-playing pill left of the dock
 StatsIsland.qml      system stats pills right of the dock, coloured by load
 LimitsIsland.qml     AI limits pill between the dock and the stats

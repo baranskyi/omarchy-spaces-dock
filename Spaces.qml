@@ -1320,7 +1320,7 @@ Panel {
             Text {
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Drag the player, AI limits and stats pills to reorder them. The workspace pill stays centered."
+              text: "Drag the QuickFile, player, AI limits and stats pills to reorder them. The workspace pill stays centered."
               color: Qt.darker(root.fg, 1.4)
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -1531,6 +1531,17 @@ Panel {
             width: parent.width
             spacing: Style.space(14)
             visible: root.settingsTab === "pills"
+
+            // ---- QuickFile
+            SectionTitle { text: "QUICKFILE" }
+
+            ToggleSetting {
+              label: "QuickFile button"
+              description: "Opens QuickFile, or offers to install it from the marketplace"
+              key: "showQuickfile"
+            }
+
+            PanelSeparator { foreground: root.fg }
 
             // ---- Player
             SectionTitle { text: "PLAYER" }

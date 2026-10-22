@@ -9,7 +9,8 @@ import "Model.js" as Model
 //   - settings: read from this plugin's top-level entry in shell.json and
 //     written back through the shell's updateEntryInline,
 //   - the media player and system stats shown by the dock's islands,
-//   - IPC: open/close/toggle/peek/system/agent/playPause/next/previous/refreshLimits,
+//   - the QuickFile button's state and action,
+//   - IPC: open/close/toggle/peek/system/quickfile/agent/playPause/next/previous/refreshLimits,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -70,7 +71,11 @@ Item {
     watchChanges: true
     printErrors: false
     onLoaded: root.readConfig(configFile.text())
-    onFileChanged: configFile.reload()
+    onFileChanged: {
+      configFile.reload()
+      // Enabling or disabling a plugin rewrites shell.json; recheck QuickFile.
+      quickfileProbeTimer.restart()
+    }
     onLoadFailed: function(error) { root.ready = true }
   }
 
@@ -120,6 +125,49 @@ Item {
     id: limitsModel
     providers: root.ready ? Model.limitsProvidersArg(root.cfg) : ""
     grokRefresh: root.cfg.limitGrokRefresh
+  }
+
+  // ------------------------------------------------------------ QuickFile
+
+  // "enabled" | "disabled" | "missing" | "unknown", from `omarchy plugin list --json`.
+  property string quickfileState: "unknown"
+
+  function probeQuickfile() {
+    if (!quickfileProbe.running) quickfileProbe.running = true
+  }
+
+  // Click on the QuickFile pill: open it, turn it on, or offer to install it.
+  function activateQuickfile() {
+    var command = Model.quickfileCommand(root.quickfileState)
+    if (command) Quickshell.execDetached(["bash", "-lc", command])
+    quickfileProbeTimer.restart()
+  }
+
+  Process {
+    id: quickfileProbe
+    command: ["bash", "-lc", "omarchy plugin list --json"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var state = Model.quickfileState(text)
+        if (state !== "unknown") root.quickfileState = state
+      }
+    }
+  }
+
+  // Debounced recheck after shell.json changes or a click; a slower poll
+  // catches an install that finishes in its own terminal.
+  Timer {
+    id: quickfileProbeTimer
+    interval: 1500
+    onTriggered: root.probeQuickfile()
+  }
+
+  Timer {
+    interval: 60000
+    repeat: true
+    running: root.cfg.showQuickfile
+    triggeredOnStart: true
+    onTriggered: root.probeQuickfile()
   }
 
   // ------------------------------------------------------------ docks
@@ -186,6 +234,7 @@ Item {
       var s = root.focusedSpaces()
       return s && s.peek(workspace) ? "ok" : "empty"
     }
+    function quickfile(): void { root.activateQuickfile() }
     function system(): void { var d = root.focusedDock(); if (d) d.systemPanel.toggle() }
     function refreshLimits(): void { limitsModel.refresh() }
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }

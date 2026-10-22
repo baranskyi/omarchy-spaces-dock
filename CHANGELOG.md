@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- A QuickFile button pill, left of the player by default and draggable like the others. It opens the QuickFile plugin, turns it on if it is installed but off, or opens a terminal that offers to install it from the Omarchy plugin marketplace. Setting `showQuickfile`, in the Pills tab; IPC `quickfile`.
+
 ## 0.5.4
 
 - The settings panel is split into tabs: Dock, Workspaces (with behavior and previews), Icons, Look (appearance and animation) and Pills (player, AI limits, system stats). Tab cycles the tabs while the panel is open.

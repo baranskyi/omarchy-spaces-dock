@@ -48,6 +48,7 @@ PanelWindow {
   // Clicks outside the dock and its islands fall through to the windows below.
   mask: Region {
     item: dockSurface
+    Region { item: quickfileIsland }
     Region { item: playerIsland }
     Region { item: limitsIsland }
     Region { item: statsIsland }
@@ -115,10 +116,10 @@ PanelWindow {
 
   // The workspace pill (dockSurface) is always centered. The other pills sit
   // beside it in cfg.islandOrder and can be dragged to a new place.
-  readonly property var islandItems: ({ player: playerIsland, limits: limitsIsland, stats: statsIsland })
+  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland })
   readonly property var islandX: Model.islandLayout(
     cfg.islandOrder,
-    { player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width },
+    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width },
     { x: dockSurface.x, width: dockSurface.width },
     islandGap, full, width)
 
@@ -243,6 +244,20 @@ PanelWindow {
 
   // Player, AI limits and system stats: separate pills beside the centered
   // dock (or at the ends of the strip in full-width mode), placed by islandX.
+  QuickfileIsland {
+    id: quickfileIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.islandPos("quickfile")
+    z: dockWindow.draggingId === "quickfile" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "quickfile" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    service: dockWindow.service
+    spaces: spaces
+    dock: dockWindow
+  }
+
   PlayerIsland {
     id: playerIsland
     anchors.bottom: parent.bottom
@@ -286,6 +301,7 @@ PanelWindow {
     dock: dockWindow
   }
 
+  IslandDrag { island: quickfileIsland; islandId: "quickfile" }
   IslandDrag { island: playerIsland; islandId: "player" }
   IslandDrag { island: limitsIsland; islandId: "limits" }
   IslandDrag { island: statsIsland; islandId: "stats" }

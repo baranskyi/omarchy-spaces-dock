@@ -1596,6 +1596,16 @@ Panel {
               key: "showStats"
             }
 
+            ChoiceSetting {
+              visible: root.cfg.showStats
+              title: "STYLE"
+              key: "statsStyle"
+              options: [
+                { value: "rings", label: "Rings" },
+                { value: "values", label: "Values" }
+              ]
+            }
+
             ToggleSetting { visible: root.cfg.showStats; label: "CPU"; key: "statCpu" }
             ToggleSetting { visible: root.cfg.showStats; label: "GPU"; description: "A sleeping NVIDIA GPU is never woken up"; key: "statGpu" }
             ToggleSetting { visible: root.cfg.showStats; label: "Memory"; key: "statMemory" }

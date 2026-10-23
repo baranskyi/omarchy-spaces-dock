@@ -527,4 +527,33 @@ test("quickfileCommand opens, enables or offers to install QuickFile", () => {
   assert.ok(M.quickfileTooltip("missing").includes("marketplace"))
 })
 
+test("statsStyle defaults to rings", () => {
+  assert.strictEqual(M.resolveSettings({}).statsStyle, "rings")
+  assert.strictEqual(M.resolveSettings({ statsStyle: "values" }).statsStyle, "values")
+  assert.strictEqual(M.resolveSettings({ statsStyle: "bars" }).statsStyle, "rings")
+})
+
+test("statFraction maps each metric onto its ring", () => {
+  const state = {
+    cpu: { percent: 25 }, memory: { percent: 50 }, storage: [{ percent: 36 }],
+    temperature: { cpu: 65, sensors: [] },
+    gpu: [{ name: "Intel", percent: null, frequencyMHz: 900 }, { name: "NVIDIA", percent: 40 }],
+    fans: [{ value: 3000 }, { value: 0 }],
+    network: { download: 0, upload: 0 }
+  }
+  assert.strictEqual(M.statFraction("cpu", state), 0.25)
+  assert.strictEqual(M.statFraction("memory", state), 0.5)
+  assert.strictEqual(M.statFraction("storage", state), 0.36)
+  assert.strictEqual(M.statFraction("temperature", state), 0.5)
+  assert.strictEqual(M.statFraction("gpu", state), 0.4)
+  assert.strictEqual(M.statFraction("fans", state), 0.5)
+  assert.strictEqual(M.statFraction("network", state), 0)
+  assert.ok(M.statFraction("network", { network: { download: 50 * 1024, upload: 0 } }) > 0.2, "a quiet link still shows")
+  assert.strictEqual(M.statFraction("network", { network: { download: 1e12, upload: 0 } }), 1)
+  assert.strictEqual(M.statFraction("temperature", { temperature: { cpu: 20 } }), 0)
+  assert.strictEqual(M.statFraction("temperature", { temperature: { cpu: 120 } }), 1)
+  assert.strictEqual(M.statFraction("cpu", {}), -1)
+  assert.strictEqual(M.statFraction("gpu", { gpu: [{ name: "NVIDIA", asleep: true, percent: null }] }), -1)
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

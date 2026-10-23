@@ -4,10 +4,12 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// System stats island: one small pill per enabled metric, in the style of the
-// workspace pills. A pill turns yellow under heavy load or heat and red at the
-// extreme (Model.statLevel). Hover for details, click for the system panel,
-// right-click for btop.
+// System stats island. Each enabled metric is either a filling ring with its
+// glyph in the middle (statsStyle "rings", the default, like the AI limits)
+// or a small pill with glyph and number ("values"). Rings and pills turn
+// yellow under heavy load or heat and red at the extreme (Model.statLevel).
+// Hover for the number and details, click for the system panel, right-click
+// for btop.
 BorderSurface {
   id: island
 
@@ -17,11 +19,12 @@ BorderSurface {
   property var systemPanel: null
   property bool flat: false
 
-  // Opaque fills so both read on light and dark themes. Yellow is fixed: in
-  // many themes the palette's "yellow" (color3) is a dark orange.
+  // Fixed, opaque level colours so "yellow = heavy, red = extreme" holds in
+  // every theme: palettes reuse their "yellow"/"red" slots freely (Dayfox's
+  // yellow is dark orange, Aetheria's red is lime), and some accents are red.
   readonly property color warningFill: "#f2c230"
   readonly property color warningText: "#3a2c00"
-  readonly property color criticalFill: Color.urgent
+  readonly property color criticalFill: "#e5484d"
   readonly property color criticalText: "#ffffff"
 
   function openPanel() {
@@ -43,9 +46,11 @@ BorderSurface {
   // Tighter than the workspace pills: stats are short, fixed-width values.
   readonly property int pillPad: spaces.sp(6)
   readonly property int pillGap: Math.max(inset, Math.round(dm.gap / 2))
+  readonly property bool rings: cfg.statsStyle === "rings"
+  readonly property int ringSize: Math.round(dm.pillThickness * 0.94)
 
   visible: shown
-  width: shown ? row.implicitWidth + inset * 2 : 0
+  width: shown ? row.implicitWidth + inset * 2 + (rings ? spaces.sp(4) * 2 : 0) : 0
   color: flat ? "transparent" : Color.bar.background
   borderSpec: flat ? Border.none() : Border.surfaceSpec("bar", "border", "transparent", 0)
 
@@ -62,10 +67,8 @@ BorderSurface {
 
   Row {
     id: row
-    anchors.left: parent.left
-    anchors.leftMargin: island.inset
-    anchors.verticalCenter: parent.verticalCenter
-    spacing: island.pillGap
+    anchors.centerIn: parent
+    spacing: island.rings ? island.spaces.sp(6) : island.pillGap
 
     Repeater {
       model: island.items
@@ -79,10 +82,31 @@ BorderSurface {
         readonly property color textColor: level === "critical" ? island.criticalText
           : level === "warning" ? island.warningText : island.fg
 
-        width: statRow.implicitWidth + island.pillPad * 2
-        height: island.dm.pillThickness
+        // A normal ring uses the dock's text colour, never the theme accent,
+        // which can be red and read as an alarm.
+        readonly property color levelColor: level === "critical" ? island.criticalFill
+          : level === "warning" ? island.warningFill : island.fg
+
+        width: island.rings ? island.ringSize : statRow.implicitWidth + island.pillPad * 2
+        height: island.rings ? island.ringSize : island.dm.pillThickness
+
+        StatRing {
+          anchors.fill: parent
+          visible: island.rings
+          fraction: Model.statFraction(statPill.modelData.key, island.stats.state)
+          color: statPill.levelColor
+          trackColor: Util.alpha(island.fg, 0.12)
+          discColor: statPill.level === "normal" ? "transparent" : Util.alpha(statPill.levelColor, 0.22)
+          glyph: statPill.modelData.icon
+          glyphColor: island.fg
+          fontFamily: island.spaces.fontFamily
+          dim: !island.stats.ready
+          scale: statMouse.containsMouse ? 1.08 : 1
+          Behavior on scale { enabled: island.spaces.fastDur > 0; NumberAnimation { duration: island.spaces.fastDur; easing.type: Easing.OutCubic } }
+        }
 
         Rectangle {
+          visible: !island.rings
           anchors.fill: parent
           radius: island.spaces.pillRadius
           color: statPill.level === "critical" ? (statMouse.containsMouse ? Qt.lighter(island.criticalFill, 1.12) : island.criticalFill)
@@ -93,6 +117,7 @@ BorderSurface {
 
         Row {
           id: statRow
+          visible: !island.rings
           anchors.centerIn: parent
           spacing: island.spaces.sp(3)
 
@@ -145,7 +170,8 @@ BorderSurface {
           onContainsMouseChanged: {
             if (containsMouse) {
               var detail = Model.statDetail(statPill.modelData.key, island.stats.state)
-              island.dock.showTooltip(statPill, statPill.modelData.label + "\n" + detail + "\nClick: system panel · Right-click: btop")
+              var value = Model.statText(statPill.modelData.key, island.stats.state)
+              island.dock.showTooltip(statPill, statPill.modelData.label + " · " + value + "\n" + detail + "\nClick: system panel · Right-click: btop")
             } else {
               island.dock.hideTooltip(statPill)
             }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- System stats are rings by default: each metric fills a ring around its icon, like the AI limits, and takes far less room. The number moves to the tooltip. `statsStyle: "values"` (Pills tab, Style) brings back the pills with numbers.
+- Yellow and red are now fixed colours for both styles, and a normal ring uses the dock's text colour. Theme colours made them misleading: some themes have a red accent or a lime "red".
+
 ## 0.6.0
 
 - A QuickFile button pill, left of the player by default and draggable like the others. It opens the QuickFile plugin, turns it on if it is installed but off, or opens a terminal that offers to install it from the Omarchy plugin marketplace. Setting `showQuickfile`, in the Pills tab; IPC `quickfile`.

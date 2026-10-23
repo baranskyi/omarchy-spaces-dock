@@ -23,6 +23,7 @@ var DEFAULTS = {
 
   // System stats island, right of the dock
   showStats: true,
+  statsStyle: "rings",       // "rings" (icon in a filling ring) | "values" (icon and number)
   statCpu: true,
   statMemory: true,
   statTemperature: true,
@@ -85,6 +86,7 @@ var LABEL_STYLES = ["number", "glyph", "none"]
 var SPEEDS = ["slow", "normal", "fast"]
 var ALIGNMENTS = ["center", "full"]
 var PLAYER_SOURCES = ["spotify", "any"]
+var STATS_STYLES = ["rings", "values"]
 
 var DOCK_HEIGHT_MIN = 40
 var DOCK_HEIGHT_MAX = 96
@@ -121,6 +123,7 @@ function resolveSettings(raw) {
     playerSource: oneOf(s.playerSource, PLAYER_SOURCES, d.playerSource),
     playerControls: bool(s.playerControls, d.playerControls),
     showStats: bool(s.showStats, d.showStats),
+    statsStyle: oneOf(s.statsStyle, STATS_STYLES, d.statsStyle),
     statCpu: bool(s.statCpu, d.statCpu),
     statMemory: bool(s.statMemory, d.statMemory),
     statTemperature: bool(s.statTemperature, d.statTemperature),
@@ -383,6 +386,39 @@ function statText(key, state) {
     return rpm === null ? "N/A" : Math.round(rpm) + " RPM"
   }
   return "—"
+}
+
+// How full a stat ring is, 0..1, or -1 when there is no reading.
+// Usage metrics are percentages; temperature spans 30-100 °C like the system
+// panel's meter; fans fill at 6000 RPM; network uses a log scale up to
+// 100 MiB/s so a quiet link still shows a sliver.
+var RING_TEMPERATURE = { floor: 30, ceiling: 100 }
+var RING_FAN_RPM = 6000
+var RING_NETWORK_BYTES = 100 * 1024 * 1024
+
+function clamp01(v) { return Math.max(0, Math.min(1, v)) }
+
+function statFraction(key, state) {
+  var s = state || {}
+  if (s[key] === undefined) return -1
+  switch (key) {
+  case "cpu": return isNum(s.cpu.percent) ? clamp01(s.cpu.percent / 100) : -1
+  case "memory": return isNum(s.memory.percent) ? clamp01(s.memory.percent / 100) : -1
+  case "storage": return s.storage.length && isNum(s.storage[0].percent) ? clamp01(s.storage[0].percent / 100) : -1
+  case "gpu":
+    var g = primaryGpu(s.gpu)
+    return g && isNum(g.percent) ? clamp01(g.percent / 100) : -1
+  case "temperature":
+    var t = s.temperature.cpu
+    return isNum(t) ? clamp01((t - RING_TEMPERATURE.floor) / (RING_TEMPERATURE.ceiling - RING_TEMPERATURE.floor)) : -1
+  case "fans":
+    var rpm = maxValue(s.fans)
+    return rpm === null ? -1 : clamp01(rpm / RING_FAN_RPM)
+  case "network":
+    var rate = (isNum(s.network.download) ? s.network.download : 0) + (isNum(s.network.upload) ? s.network.upload : 0)
+    return clamp01(Math.log(1 + rate / 1024) / Math.log(1 + RING_NETWORK_BYTES / 1024))
+  }
+  return -1
 }
 
 // Load levels for colouring stat pills. Same thresholds as the System
@@ -1010,7 +1046,7 @@ if (typeof module !== "undefined") {
     STATS: STATS, enabledStats: enabledStats, statsMetricsArg: statsMetricsArg,
     formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,
     primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
-    statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE,
+    statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,

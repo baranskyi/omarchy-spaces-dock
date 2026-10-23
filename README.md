@@ -19,7 +19,9 @@ Four islands sit beside the dock as separate pills:
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
 - **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it for the system panel, right-click it to open btop.
 
-A stat pill has no colour while things are normal. It turns yellow under heavy load or heat and red at the extreme:
+Each stat is a ring that fills with the load and has its icon in the middle, like the AI limits; switch **Style** to **Values** for pills with numbers instead. Temperature fills from 30 to 100 °C, fans at 6000 RPM, and network on a log scale up to 100 MiB/s. The exact number is in the tooltip.
+
+A stat has no alarm colour while things are normal: the ring uses the dock's text colour. It turns yellow under heavy load or heat and red at the extreme. Both are fixed colours, so they mean the same in every theme:
 
 | Metric | Yellow from | Red from |
 |---|---|---|
@@ -118,6 +120,7 @@ Player and system stats:
 | `playerSource` | `spotify`, `any` (any MPRIS player) | `spotify` |
 | `playerControls` | bool, previous / play / next buttons | `true` |
 | `showStats` | bool | `true` |
+| `statsStyle` | `rings` (filling ring with the icon), `values` (icon and number) | `rings` |
 | `statCpu`, `statMemory`, `statTemperature` | bool | `true` |
 | `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
 
@@ -223,7 +226,8 @@ DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tool
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
 QuickfileIsland.qml  QuickFile button pill
 PlayerIsland.qml     now-playing pill left of the dock
-StatsIsland.qml      system stats pills right of the dock, coloured by load
+StatsIsland.qml      system stats right of the dock, as rings or values, coloured by load
+StatRing.qml         one filling stat ring with its icon
 LimitsIsland.qml     AI limits pill between the dock and the stats
 LimitRings.qml       a provider's two concentric rings
 Limits.qml           runs llm_limits.py every five minutes, keeps the last good numbers

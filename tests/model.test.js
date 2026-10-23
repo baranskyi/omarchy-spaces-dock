@@ -556,4 +556,30 @@ test("statFraction maps each metric onto its ring", () => {
   assert.strictEqual(M.statFraction("gpu", { gpu: [{ name: "NVIDIA", asleep: true, percent: null }] }), -1)
 })
 
+test("grok collector never reads session history and keeps its cache private", () => {
+  const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "spaces-dock-grok-"))
+  const grokHome = path.join(home, ".grok")
+  const cache = path.join(home, "cache")
+  fs.mkdirSync(path.join(grokHome, "sessions", "s1"), { recursive: true })
+  fs.writeFileSync(path.join(grokHome, "sessions", "s1", "updates.jsonl"), '{"type":"turn_completed","usage":{"input_tokens":5}}\n')
+  fs.mkdirSync(path.join(cache, "omarchy", "agent-usage"), { recursive: true, mode: 0o755 })
+  const run = spawnSync("python3", ["-I", "-B", path.join(__dirname, "..", "collectors", "grok-usage"), "--limits-only", "--no-refresh"], {
+    encoding: "utf8", timeout: 20000,
+    env: Object.assign({}, process.env, { HOME: home, GROK_HOME: grokHome, XDG_CACHE_HOME: cache })
+  })
+  assert.strictEqual(run.status, 0, run.stderr)
+  const record = JSON.parse(run.stdout.trim())
+  assert.deepStrictEqual(record.limits, [])
+  assert.ok(!("totalPrompts" in record), "no activity stats in the record")
+  const dir = path.join(cache, "omarchy", "agent-usage")
+  assert.strictEqual(fs.statSync(dir).mode & 0o777, 0o700, "cache dir tightened to 0700")
+  assert.ok(!fs.existsSync(path.join(dir, "grok-scan.json")), "no activity summary written")
+  for (const f of fs.readdirSync(dir)) assert.strictEqual(fs.statSync(path.join(dir, f)).mode & 0o077, 0, f + " is private")
+  const src = fs.readFileSync(path.join(__dirname, "..", "collectors", "grok-usage"), "utf8")
+  assert.ok(!/0o644/.test(src), "no world-readable writes")
+  assert.ok(!/def scan_sessions|grok-scan/.test(src.replace(/#.*$/gm, "")), "no session scanning code")
+  fs.rmSync(home, { recursive: true, force: true })
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

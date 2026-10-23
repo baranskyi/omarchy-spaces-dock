@@ -6,12 +6,14 @@
 # every copy of this collector shares, so two copies never refresh at once.
 # Spaces Dock passes --no-refresh unless the user turns on "Refresh Grok
 # sign-in", so by default ~/.grok/auth.json is only ever read.
-"""Collect Grok Build usage into one display-ready JSON record.
+"""Print Grok subscription limits as one display-ready JSON record.
 
-Local stats come from Grok session files under ~/.grok/sessions (turn_completed
-usage in updates.jsonl). Rate limits and the plan come from the same CLI-proxy
-billing and settings endpoints the Grok `/usage` command uses. The agents panel
-only ever reads the JSON this prints (or writes with --write).
+Rate limits and the plan come from the same CLI-proxy billing and settings
+endpoints the Grok `/usage` command uses, authenticated with the Grok CLI's
+sign-in in ~/.grok/auth.json. Session history is never read. The only files
+written are a short-lived limits cache and lock in a private (0700) cache
+directory, with 0600 files, and ~/.grok/auth.json when the opt-in token
+refresh is on.
 """
 
 from __future__ import annotations
@@ -37,8 +39,6 @@ BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 SETTINGS_URL = "https://cli-chat-proxy.grok.com/v1/settings"
 TOKEN_URL = "https://auth.x.ai/oauth2/token"
 PROBE_MIN_INTERVAL_SECONDS = 15
-SCAN_REUSE_SECONDS = 20
-LIMITS_ONLY_REUSE_SECONDS = 900
 
 
 def grok_home() -> Path:
@@ -50,50 +50,15 @@ def expand_path(value: str) -> Path:
 
 
 def cache_root() -> Path:
+  """Private cache directory: owner-only, tightened if it already exists."""
   root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omarchy" / "agent-usage"
-  root.mkdir(parents=True, exist_ok=True)
-  return root
-
-
-def usage_dir() -> Path:
-  state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
-  path = state / "omarchy" / "agents" / "usage"
-  path.mkdir(parents=True, exist_ok=True)
-  return path
-
-
-def date_string(value: dt.date) -> str:
-  return value.strftime("%Y-%m-%d")
-
-
-def recent_date_strings() -> list[str]:
-  today = dt.datetime.now().date()
-  return [date_string(today - dt.timedelta(days=offset)) for offset in range(6, -1, -1)]
-
-
-def local_date_string() -> str:
-  return date_string(dt.datetime.now().date())
-
-
-def local_date_from_timestamp(value: Any) -> str:
-  if value is None:
-    return local_date_string()
-  if isinstance(value, (int, float)):
-    try:
-      seconds = float(value) / 1000.0 if float(value) > 10_000_000_000 else float(value)
-      return date_string(dt.datetime.fromtimestamp(seconds).date())
-    except Exception:
-      return local_date_string()
-  raw = str(value).strip()
-  if not raw:
-    return local_date_string()
+  root.mkdir(mode=0o700, parents=True, exist_ok=True)
   try:
-    parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    if parsed.tzinfo is not None:
-      parsed = parsed.astimezone()
-    return date_string(parsed.date())
-  except Exception:
-    return local_date_string()
+    if root.stat().st_mode & 0o077:
+      root.chmod(0o700)
+  except OSError:
+    pass
+  return root
 
 
 def number(value: Any) -> int:
@@ -104,39 +69,13 @@ def number(value: Any) -> int:
     return 0
 
 
-def empty_bucket() -> dict[str, int]:
-  return {
-    "inputTokens": 0,
-    "outputTokens": 0,
-    "cacheReadInputTokens": 0,
-    "cacheCreationInputTokens": 0,
-  }
-
-
-def empty_stats() -> dict[str, Any]:
-  return {
-    "todayPrompts": 0,
-    "todaySessions": 0,
-    "todayTotalTokens": 0,
-    "todayTokensByModel": {},
-    "recentDays": [{"date": day, "messageCount": 0} for day in recent_date_strings()],
-    "totalPrompts": 0,
-    "totalSessions": 0,
-    "activeDays": 0,
-    "activeDates": [],
-    "modelUsage": {},
-    "hasLocalStats": True,
-    "hasPromptStats": True,
-  }
-
-
 def write_json(path: Path, payload: dict[str, Any]) -> None:
   handle_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
   tmp = Path(tmp_name)
   try:
     with os.fdopen(handle_fd, "w", encoding="utf-8") as handle:
       handle.write(json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n")
-    tmp.chmod(0o644)
+    tmp.chmod(0o600)
     tmp.replace(path)
   except BaseException:
     tmp.unlink(missing_ok=True)
@@ -171,139 +110,6 @@ def read_fresh_json(path: Path, max_age_seconds: float) -> dict[str, Any] | None
 
 
 # ---------------------------------------------------------------- local scan
-
-
-def usage_from_object(usage: dict[str, Any]) -> tuple[int, int, int, int]:
-  input_tokens = number(usage.get("inputTokens", usage.get("input_tokens")))
-  output_tokens = number(usage.get("outputTokens", usage.get("output_tokens")))
-  cache_read = number(
-    usage.get("cachedReadTokens", usage.get("cacheReadInputTokens", usage.get("cache_read_input_tokens")))
-  )
-  cache_write = number(
-    usage.get("cacheCreationTokens", usage.get("cacheCreationInputTokens", usage.get("cache_creation_input_tokens")))
-  )
-  return input_tokens, output_tokens, cache_read, cache_write
-
-
-def add_bucket(target: dict[str, int], usage: dict[str, Any]) -> int:
-  input_tokens, output_tokens, cache_read, cache_write = usage_from_object(usage)
-  target["inputTokens"] += input_tokens
-  target["outputTokens"] += output_tokens
-  target["cacheReadInputTokens"] += cache_read
-  target["cacheCreationInputTokens"] += cache_write
-  return input_tokens + output_tokens + cache_read + cache_write
-
-
-def scan_sessions(sessions_path: Path) -> dict[str, Any]:
-  today = local_date_string()
-  recent_dates = recent_date_strings()
-  recent = {day: {"date": day, "messageCount": 0} for day in recent_dates}
-
-  seen: set[str] = set()
-  sessions: set[str] = set()
-  active_days: set[str] = set()
-  today_sessions: set[str] = set()
-  today_tokens: dict[str, int] = {}
-  usage_by_model: dict[str, dict[str, int]] = {}
-  prompts = 0
-  today_prompt_count = 0
-  today_token_total = 0
-
-  files = sessions_path.rglob("updates.jsonl") if sessions_path.is_dir() else []
-  for path in files:
-    session_key = path.parent.name
-    try:
-      with path.open("r", encoding="utf-8", errors="replace") as handle:
-        for line_number, line in enumerate(handle, 1):
-          if "turn_completed" not in line or '"usage"' not in line:
-            continue
-          try:
-            entry = json.loads(line)
-          except Exception:
-            continue
-
-          params = entry.get("params") if isinstance(entry.get("params"), dict) else {}
-          update = params.get("update") if isinstance(params.get("update"), dict) else {}
-          if update.get("sessionUpdate") != "turn_completed":
-            continue
-          usage = update.get("usage")
-          if not isinstance(usage, dict):
-            continue
-
-          unique_key = str(update.get("prompt_id") or params.get("sessionId") or f"{path}:{line_number}")
-          if unique_key in seen:
-            continue
-          seen.add(unique_key)
-
-          model_usage = usage.get("modelUsage") if isinstance(usage.get("modelUsage"), dict) else {}
-          if not model_usage:
-            model_usage = {str(usage.get("model") or "grok"): usage}
-
-          meta = entry.get("_meta") if isinstance(entry.get("_meta"), dict) else {}
-          day = local_date_from_timestamp(entry.get("timestamp") or meta.get("agentTimestampMs"))
-          turn_total = 0
-          for model, bucket in model_usage.items():
-            if not isinstance(bucket, dict):
-              continue
-            model_id = str(model or "grok")
-            acc = usage_by_model.setdefault(model_id, empty_bucket())
-            added = add_bucket(acc, bucket)
-            if added <= 0:
-              continue
-            turn_total += added
-            if day == today:
-              today_tokens[model_id] = today_tokens.get(model_id, 0) + added
-
-          if turn_total <= 0:
-            continue
-
-          sessions.add(session_key)
-          active_days.add(day)
-          prompts += 1
-          if day in recent:
-            recent[day]["messageCount"] += turn_total
-          if day == today:
-            today_prompt_count += 1
-            today_sessions.add(session_key)
-            today_token_total += turn_total
-    except Exception as exc:
-      print(f"Ignoring unreadable Grok session file {path}: {exc}", file=sys.stderr)
-
-  return {
-    "todayPrompts": today_prompt_count,
-    "todaySessions": len(today_sessions),
-    "todayTotalTokens": today_token_total,
-    "todayTokensByModel": today_tokens,
-    "recentDays": [recent[day] for day in recent_dates],
-    "modelUsage": usage_by_model,
-    "totalPrompts": prompts,
-    "totalSessions": len(sessions),
-    "activeDays": len(active_days),
-    "activeDates": sorted(active_days),
-    "hasLocalStats": True,
-    "hasPromptStats": True,
-  }
-
-
-def cached_scan(sessions_path: Path, max_age_seconds: float) -> dict[str, Any]:
-  cache_file = cache_root() / "grok-scan.json"
-  lock_file = cache_root() / "grok-scan.lock"
-
-  cached = read_fresh_json(cache_file, max_age_seconds)
-  if cached is not None:
-    return cached
-
-  with lock_file.open("w") as lock:
-    fcntl.flock(lock, fcntl.LOCK_EX)
-    cached = read_fresh_json(cache_file, max_age_seconds)
-    if cached is not None:
-      return cached
-    summary = scan_sessions(sessions_path)
-    write_json(cache_file, summary)
-    return summary
-
-
-# ---------------------------------------------------------------- auth / limits
 
 
 def oauth_record(home: Path) -> tuple[Path, dict[str, Any], str, dict[str, Any] | None]:
@@ -375,7 +181,7 @@ def refresh_oauth_login(home: Path) -> tuple[str, str, str]:
   """
   lock_path = cache_root() / "grok-auth-refresh.lock"
   try:
-    with lock_path.open("w") as lock:
+    with os.fdopen(os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600), "w") as lock:
       fcntl.flock(lock, fcntl.LOCK_EX)
       path, data, record_key, login = oauth_record(home)
       if not isinstance(login, dict):
@@ -690,18 +496,16 @@ def collect_limits(access_token: str, expires_at: str, force: bool) -> dict[str,
 
 
 def main() -> int:
+  # Spaces Dock only needs the subscription limits. Unlike the collector this
+  # was copied from, it never reads Grok session history and never writes an
+  # activity summary: no ~/.grok/sessions scan, no grok-scan.json.
   parser = argparse.ArgumentParser()
-  parser.add_argument("--force", action="store_true", help="rescan sessions and re-probe limits, ignoring caches")
-  parser.add_argument("--limits-only", action="store_true", help="reuse any recent session scan; only the limits probe must be fresh")
-  parser.add_argument("--write", action="store_true", help="write ~/.local/state/omarchy/agents/usage/grok.json")
+  parser.add_argument("--force", action="store_true", help="re-probe limits, ignoring the short probe cache")
+  parser.add_argument("--limits-only", action="store_true", help="accepted for compatibility; limits are all this collector reports")
   parser.add_argument("--no-refresh", action="store_true", help="never renew the Grok CLI token; only read ~/.grok/auth.json")
-  parser.add_argument("--cache-seconds", type=float, default=SCAN_REUSE_SECONDS)
   args = parser.parse_args()
 
   home = grok_home()
-  scan_age = 0 if args.force else (LIMITS_ONLY_REUSE_SECONDS if args.limits_only else args.cache_seconds)
-  stats = cached_scan(home / "sessions", scan_age)
-
   access_token, expires_at, _auth_mode = oauth_login(home)
   if access_token and token_refresh_due(expires_at) and not args.no_refresh:
     access_token, expires_at, _auth_mode = refresh_oauth_login(home)
@@ -712,9 +516,7 @@ def main() -> int:
     "id": AGENT_ID,
     "name": AGENT_NAME,
     "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-    "ready": number(stats.get("totalPrompts")) > 0 or len(limits["limits"]) > 0,
-    "hasLocalStats": True,
-    "hasPromptStats": True,
+    "ready": len(limits["limits"]) > 0,
     "tierLabel": limits.get("tierLabel") or "",
     "usageStatusText": limits["usageStatusText"],
     "authHelpText": limits["authHelpText"],
@@ -722,11 +524,7 @@ def main() -> int:
   }
   if limits.get("retryAdvised"):
     record["retryAdvised"] = True
-  record.update(stats)
-  payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
-  print(payload)
-  if args.write:
-    write_json(usage_dir() / "grok.json", record)
+  print(json.dumps(record, separators=(",", ":"), sort_keys=True))
   return 0
 
 

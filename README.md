@@ -148,6 +148,8 @@ The collectors use the sign-ins of Claude Code, the Codex CLI and the Grok CLI a
 
 The dock only reads these sign-ins. The Grok CLI's token expires within hours; turn on **Refresh Grok sign-in** (`limitGrokRefresh`) to let the bundled collector renew it the way the Grok CLI does, which rewrites `~/.grok/auth.json`. It is off by default.
 
+The bundled Grok collector reads only the sign-in, never your Grok session history. Its short-lived limits cache lives in `~/.cache/omarchy/agent-usage`, which it keeps owner-only (directory `0700`, files `0600`).
+
 What the dock writes: its own entry in `~/.config/omarchy/shell.json`, only when you change a setting or drag a pill.
 
 The stats come from `stats.py`, a small Python script that prints a snapshot every two seconds and only collects the metrics that are on. With the GPU metric on, an NVIDIA card is only queried while it is already awake, so the dock never keeps a hybrid laptop's discrete GPU from sleeping.

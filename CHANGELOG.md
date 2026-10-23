@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+
+- Privacy fix from the marketplace review: the bundled Grok collector no longer reads Grok session history or writes an activity summary (`grok-scan.json`), even in `--limits-only` mode; that code is gone. Its cache directory is made owner-only (`0700`) and every file it writes, including the refresh lock, is `0600`. The unused `--write` option is removed.
+
 ## 0.7.0
 
 - System stats are rings by default: each metric fills a ring around its icon, like the AI limits, and takes far less room. The number moves to the tooltip. `statsStyle: "values"` (Pills tab, Style) brings back the pills with numbers.

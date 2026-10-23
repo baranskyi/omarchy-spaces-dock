@@ -606,6 +606,22 @@ test("battery ring: fill, levels only while discharging, glyph and details", () 
   assert.strictEqual(M.statDetail("battery", { battery: { present: false } }), "No battery")
 })
 
+test("power profiles: picker order, active profile, missing and unknown ones", () => {
+  // omarchy-powerprofiles-list prints power-saver first.
+  const listed = M.parsePowerProfiles("power-saver\t0\nbalanced\t1\nperformance\t0\n")
+  assert.deepStrictEqual(listed.profiles.map(p => p.key), ["performance", "balanced", "power-saver"])
+  assert.strictEqual(listed.active, "balanced")
+  assert.strictEqual(listed.profiles[2].label, "Power saver")
+  assert.strictEqual(listed.profiles[0].icon, String.fromCodePoint(0xf04c5))
+  // No performance profile on this machine.
+  assert.deepStrictEqual(M.parsePowerProfiles("power-saver\t1\nbalanced\t0").profiles.map(p => p.key), ["balanced", "power-saver"])
+  assert.strictEqual(M.parsePowerProfiles("power-saver\t1\nbalanced\t0").active, "power-saver")
+  const odd = M.parsePowerProfiles("quiet-mode\t1\nbalanced\t0")
+  assert.deepStrictEqual(odd.profiles.map(p => p.key + ":" + p.label), ["balanced:Balanced", "quiet-mode:Quiet mode"])
+  assert.deepStrictEqual(M.parsePowerProfiles(""), { profiles: [], active: "" })
+  assert.deepStrictEqual(M.parsePowerProfiles(null), { profiles: [], active: "" })
+})
+
 test("stats.py reads a fake battery and handles a machine without one", () => {
   const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "spaces-dock-psu-"))

@@ -236,6 +236,7 @@ Item {
     }
     function quickfile(): void { root.activateQuickfile() }
     function system(): void { var d = root.focusedDock(); if (d) d.systemPanel.toggle() }
+    function power(): void { var d = root.focusedDock(); if (d && d.powerPanel.active) d.powerPanel.toggle() }
     function refreshLimits(): void { limitsModel.refresh() }
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
     function next(): string { return mediaModel.next() ? "ok" : "no player" }

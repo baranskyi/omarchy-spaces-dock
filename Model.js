@@ -341,6 +341,39 @@ function formatMinutes(minutes) {
   return h > 0 ? h + "h " + m + "m" : m + "m"
 }
 
+// Power profiles, top to bottom as the picker stacks them above the battery
+// ring. Glyphs match Omarchy's own power panel.
+var POWER_PROFILES = [
+  { key: "performance", label: "Performance", icon: 0xf04c5 },
+  { key: "balanced", label: "Balanced", icon: 0xf029a },
+  { key: "power-saver", label: "Power saver", icon: 0xf032a }
+]
+
+// Parses `omarchy-powerprofiles-list --active-state` ("name<TAB>1|0" per
+// line) into { profiles: [{ key, label, icon (string) }], active }. Known
+// profiles come in POWER_PROFILES order, unknown ones after them.
+function parsePowerProfiles(raw) {
+  var found = []
+  var active = ""
+  var lines = String(raw || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var parts = lines[i].trim().split("\t")
+    var name = parts[0]
+    if (!name || found.indexOf(name) !== -1) continue
+    found.push(name)
+    if (parts[1] === "1") active = name
+  }
+  var profiles = []
+  POWER_PROFILES.forEach(function(p) {
+    if (found.indexOf(p.key) !== -1) profiles.push({ key: p.key, label: p.label, icon: String.fromCodePoint(p.icon) })
+  })
+  found.forEach(function(name) {
+    var known = POWER_PROFILES.some(function(p) { return p.key === name })
+    if (!known) profiles.push({ key: name, label: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " "), icon: String.fromCodePoint(0xf0084) })
+  })
+  return { profiles: profiles, active: active }
+}
+
 // Enabled stats, in island order: [{ key, label, icon (string), template }].
 function enabledStats(settings) {
   var out = []
@@ -1099,6 +1132,7 @@ if (typeof module !== "undefined") {
     primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
     LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
+    POWER_PROFILES: POWER_PROFILES, parsePowerProfiles: parsePowerProfiles,
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,

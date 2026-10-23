@@ -17,7 +17,7 @@ Four islands sit beside the dock as separate pills:
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Spotify appears as soon as it starts, even before a track is picked; other players only while they have a track. Click the cover or title to jump to the player's window.
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
-- **System stats, on the right:** CPU, GPU, memory, storage, network, fans, CPU temperature and battery, like the Konostat plugin. CPU, memory, temperature and battery are on by default; the battery only appears on computers that have one. Hover a value for details, click it for the system panel, right-click it to open btop.
+- **System stats, on the right:** CPU, GPU, memory, storage, network, fans, CPU temperature and battery, like the Konostat plugin. CPU, memory, temperature and battery are on by default; the battery only appears on computers that have one. Hover a value for details, click it for the system panel, right-click it to open btop. Click the battery to switch the power profile.
 
 Each stat is a ring that fills with the load and has its icon in the middle, like the AI limits; switch **Style** to **Values** for pills with numbers instead. Temperature fills from 30 to 100 °C, fans at 6000 RPM, network on a log scale up to 100 MiB/s, and the battery with its charge. The battery icon gets a bolt while it is plugged in. The exact number is in the tooltip, and for the battery also the time left or until full, the power draw and the battery's health.
 
@@ -30,6 +30,8 @@ A stat has no alarm colour while things are normal: the ring uses the dock's tex
 | Battery, only while running on it | 20% or less | 10% or less |
 
 Network and fans are never coloured.
+
+Clicking the battery opens a power profile picker above it: Performance, Balanced and Power saver as rings stacked from top to bottom, with the active one filled. Hover a ring or use the arrow keys to see its name, click it or press Enter to switch, and Esc closes the picker. The switch goes through Omarchy's `omarchy-powerprofiles-set`, so the choice is remembered separately for AC and battery, like in Omarchy's power menu. Profiles the machine does not offer are left out.
 
 The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
 
@@ -46,6 +48,7 @@ Everything it needs ships with Omarchy, and it needs no other plugin:
 - Omarchy 4 (Quattro) with omarchy-shell and Quickshell
 - `python3` for the system stats and AI limits collectors, standard library only
 - `btop` for right-click on the stats
+- For the power profile picker: Omarchy's `omarchy-powerprofiles-list` and `omarchy-powerprofiles-set` with power-profiles-daemon
 - For AI limits: Omarchy's `omarchy-agent-usage-claude` and `omarchy-agent-usage-codex`, plus Claude Code, the Codex CLI or the Grok CLI signed in. Each provider is optional.
 - Optional: `nvidia-smi` for an NVIDIA GPU, only queried while the GPU is awake
 
@@ -198,6 +201,7 @@ omarchy-shell io.github.baranskyi.spaces-dock toggle
 | `peek <workspace>` | Show the preview for a workspace for a few seconds, for a keybinding |
 | `playPause`, `next`, `previous` | Control the player shown on the dock |
 | `system` | Toggle the system panel on the focused monitor's dock |
+| `power` | Toggle the power profile picker above the battery |
 | `quickfile` | Same as clicking the QuickFile button |
 | `refreshLimits` | Fetch the AI limits now |
 | `agent <session> <state> <pids>` | Used by the agent hook below |
@@ -237,6 +241,7 @@ Limits.qml           runs llm_limits.py every five minutes, keeps the last good 
 llm_limits.py        runs the usage collectors in parallel, standard library only
 collectors/grok-usage  Grok usage collector
 SystemPanel.qml      system panel above the stats, forked from System Monitor
+PowerPanel.qml       power profile picker above the battery ring
 SysMetrics.qml/.js   its /proc sampler and two-minute history
 Sparkline.qml        its charts
 discover-sensors.sh  its CPU temperature, GPU and disk discovery

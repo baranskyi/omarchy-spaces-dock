@@ -22,6 +22,7 @@ PanelWindow {
   readonly property bool full: cfg.alignment === "full"
   property alias spaces: spaces
   property alias systemPanel: systemPanel
+  property alias powerPanel: powerPanel
 
   visible: service.ready && selected && !hiddenWithBar
 
@@ -297,6 +298,7 @@ PanelWindow {
     flat: dockWindow.full
     stats: dockWindow.service.stats
     systemPanel: systemPanel
+    powerPanel: powerPanel
     spaces: spaces
     dock: dockWindow
   }
@@ -314,6 +316,16 @@ PanelWindow {
     spaces: spaces
     bottomMargin: dockWindow.cfg.bottomMargin
     active: dockWindow.visible && statsIsland.shown
+  }
+
+  // Power profile picker above the battery ring.
+  PowerPanel {
+    id: powerPanel
+    bar: dockBar
+    anchor: statsIsland.batteryItem || statsIsland
+    bottomMargin: dockWindow.cfg.bottomMargin
+    ringSize: statsIsland.ringSize
+    active: dockWindow.visible && statsIsland.shown && statsIsland.batteryItem !== null
   }
 
   Spaces {

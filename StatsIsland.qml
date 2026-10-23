@@ -8,8 +8,8 @@ import "Model.js" as Model
 // glyph in the middle (statsStyle "rings", the default, like the AI limits)
 // or a small pill with glyph and number ("values"). Rings and pills turn
 // yellow under heavy load or heat and red at the extreme (Model.statLevel).
-// Hover for the number and details, click for the system panel, right-click
-// for btop.
+// Hover for the number and details, click for the system panel (the
+// battery opens the power profile picker), right-click for btop.
 BorderSurface {
   id: island
 
@@ -17,6 +17,9 @@ BorderSurface {
   required property var spaces
   required property var dock
   property var systemPanel: null
+  property var powerPanel: null
+  // The battery's ring or pill, which the power profile picker opens above.
+  property Item batteryItem: null
   property bool flat: false
 
   // Fixed, opaque level colours so "yellow = heavy, red = extreme" holds in
@@ -32,8 +35,14 @@ BorderSurface {
     else island.spaces.toggle()
   }
 
+  function openPower() {
+    if (island.powerPanel) island.powerPanel.toggle()
+    else island.openPanel()
+  }
+
   function openBtop() {
     if (island.systemPanel && island.systemPanel.opened) island.systemPanel.close()
+    if (island.powerPanel && island.powerPanel.opened) island.powerPanel.close()
     island.spaces.run("omarchy-launch-or-focus-tui btop")
   }
 
@@ -78,7 +87,11 @@ BorderSurface {
         id: statPill
 
         required property var modelData
+        readonly property bool isBattery: modelData.key === "battery"
         readonly property bool tooltipHovered: statMouse.containsMouse
+
+        Component.onCompleted: if (statPill.isBattery) island.batteryItem = statPill
+        Component.onDestruction: if (island.batteryItem === statPill) island.batteryItem = null
         readonly property string level: Model.statLevel(modelData.key, island.stats.state)
         readonly property color textColor: level === "critical" ? island.criticalText
           : level === "warning" ? island.warningText : island.fg
@@ -160,7 +173,8 @@ BorderSurface {
           cursorShape: Qt.PointingHandCursor
           function leftClick() {
             island.dock.hideTooltip(statPill)
-            island.openPanel()
+            if (statPill.isBattery) island.openPower()
+            else island.openPanel()
           }
           onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
@@ -172,7 +186,8 @@ BorderSurface {
             if (containsMouse) {
               var detail = Model.statDetail(statPill.modelData.key, island.stats.state)
               var value = Model.statText(statPill.modelData.key, island.stats.state)
-              island.dock.showTooltip(statPill, statPill.modelData.label + " · " + value + "\n" + detail + "\nClick: system panel · Right-click: btop")
+              island.dock.showTooltip(statPill, statPill.modelData.label + " · " + value + "\n" + detail
+                + (statPill.isBattery ? "\nClick: power profile · Right-click: btop" : "\nClick: system panel · Right-click: btop"))
             } else {
               island.dock.hideTooltip(statPill)
             }

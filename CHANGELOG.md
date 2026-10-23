@@ -3,6 +3,7 @@
 ## 0.8.0
 
 - A battery ring in the system stats. It fills with the charge and shows a bolt while plugged in; the tooltip has the status, the time left or until full, the power draw and the battery's health. It turns yellow at 20% and red at 10%, only while running on battery. On by default (`statBattery`), and hidden on computers without a battery.
+- Clicking the battery opens a power profile picker above it: Performance, Balanced and Power saver as rings stacked vertically, the active one filled. It switches through Omarchy's `omarchy-powerprofiles-set`, so the choice is remembered per power source. IPC `power`.
 
 ## 0.7.1
 

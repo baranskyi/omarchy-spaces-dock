@@ -295,8 +295,8 @@ test("pickPlayer: any prefers playing, then the last controlled player", () => {
 
 test("enabledStats keeps island order and respects the master switch", () => {
   const s = M.resolveSettings({ statGpu: true, statFans: true })
-  assert.deepStrictEqual(M.enabledStats(s).map(m => m.key), ["cpu", "gpu", "memory", "fans", "temperature"])
-  assert.strictEqual(M.statsMetricsArg(s), "cpu,gpu,memory,fans,temperature")
+  assert.deepStrictEqual(M.enabledStats(s).map(m => m.key), ["cpu", "gpu", "memory", "fans", "temperature", "battery"])
+  assert.strictEqual(M.statsMetricsArg(s), "cpu,gpu,memory,fans,temperature,battery")
   assert.strictEqual(M.enabledStats(M.resolveSettings({ showStats: false })).length, 0)
   assert.strictEqual(M.statsMetricsArg(M.resolveSettings({ showStats: false })), "")
   assert.strictEqual(M.enabledStats(s)[0].icon, String.fromCodePoint(0xf0ee0))
@@ -580,6 +580,45 @@ test("grok collector never reads session history and keeps its cache private", (
   assert.ok(!/0o644/.test(src), "no world-readable writes")
   assert.ok(!/def scan_sessions|grok-scan/.test(src.replace(/#.*$/gm, "")), "no session scanning code")
   fs.rmSync(home, { recursive: true, force: true })
+})
+
+test("battery ring: fill, levels only while discharging, glyph and details", () => {
+  const bat = o => ({ battery: Object.assign({ present: true, percent: 57, status: "Discharging", plugged: false, watts: 9.8, minutesLeft: 151, health: 84 }, o) })
+  assert.strictEqual(M.resolveSettings({}).statBattery, true)
+  assert.strictEqual(M.statFraction("battery", bat()), 0.57)
+  assert.strictEqual(M.statText("battery", bat()), "57%")
+  assert.strictEqual(M.statLevel("battery", bat()), "normal")
+  assert.strictEqual(M.statLevel("battery", bat({ percent: 20 })), "warning")
+  assert.strictEqual(M.statLevel("battery", bat({ percent: 9 })), "critical")
+  assert.strictEqual(M.statLevel("battery", bat({ percent: 9, status: "Charging", plugged: true })), "normal")
+  assert.strictEqual(M.statGlyph("battery", bat(), "B"), "B")
+  assert.strictEqual(M.statGlyph("battery", bat({ status: "Charging", plugged: true }), "B"), String.fromCodePoint(0xf0084))
+  assert.strictEqual(M.statGlyph("cpu", bat(), "C"), "C")
+  assert.strictEqual(M.statDetail("battery", bat()), "Discharging\n2h 31m left\nDrawing 9.8 W\nHealth 84% of design capacity")
+  assert.strictEqual(M.statDetail("battery", bat({ status: "Charging", plugged: true, minutesLeft: 45, watts: 30 })),
+    "Charging\n45m until full\nCharging at 30 W\nHealth 84% of design capacity")
+  assert.strictEqual(M.statDetail("battery", bat({ status: "Not charging", plugged: true, minutesLeft: null, watts: null })),
+    "Not charging · plugged in\nHealth 84% of design capacity")
+  assert.strictEqual(M.statAvailable("battery", bat()), true)
+  assert.strictEqual(M.statAvailable("battery", { battery: { present: false } }), false)
+  assert.strictEqual(M.statAvailable("battery", {}), false)
+  assert.strictEqual(M.statAvailable("cpu", {}), true)
+  assert.strictEqual(M.statDetail("battery", { battery: { present: false } }), "No battery")
+})
+
+test("stats.py reads a fake battery and handles a machine without one", () => {
+  const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "spaces-dock-psu-"))
+  const put = (dir, files) => { fs.mkdirSync(path.join(root, dir)); for (const [k, v] of Object.entries(files)) fs.writeFileSync(path.join(root, dir, k), v + "\n") }
+  put("AC", { type: "Mains", online: "0" })
+  put("BAT0", { type: "Battery", status: "Discharging", capacity: "50", energy_now: "30000000", energy_full: "60000000", energy_full_design: "75000000", power_now: "10000000" })
+  const code = "import runpy,json,sys; m=runpy.run_path(sys.argv[1]); print(json.dumps([m['battery'](sys.argv[2]), m['battery'](sys.argv[3])]))"
+  const run = spawnSync("python3", ["-I", "-B", "-c", code, path.join(__dirname, "..", "stats.py"), root, path.join(root, "nothing")], { encoding: "utf8", timeout: 15000 })
+  assert.strictEqual(run.status, 0, run.stderr)
+  const [b, none] = JSON.parse(run.stdout.trim())
+  assert.deepStrictEqual(b, { present: true, percent: 50, status: "Discharging", plugged: false, watts: 10, minutesLeft: 180, health: 80 })
+  assert.deepStrictEqual(none, { present: false })
+  fs.rmSync(root, { recursive: true, force: true })
 })
 
 if (failed) { console.log(failed + " failed"); process.exit(1) }

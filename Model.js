@@ -31,6 +31,7 @@ var DEFAULTS = {
   statStorage: false,
   statNetwork: false,
   statFans: false,
+  statBattery: true,          // hidden on computers without a battery
 
   // Left-to-right order of the pills. "spaces" (the workspace pill) always
   // stays centered; the others sit beside it and can be dragged around.
@@ -131,6 +132,7 @@ function resolveSettings(raw) {
     statStorage: bool(s.statStorage, d.statStorage),
     statNetwork: bool(s.statNetwork, d.statNetwork),
     statFans: bool(s.statFans, d.statFans),
+    statBattery: bool(s.statBattery, d.statBattery),
     islandOrder: normalizeIslandOrder(s.islandOrder),
     showQuickfile: bool(s.showQuickfile, d.showQuickfile),
     showLimits: bool(s.showLimits, d.showLimits),
@@ -308,8 +310,36 @@ var STATS = [
   { key: "storage", setting: "statStorage", label: "Storage", icon: 0xf02ca, template: "100%" },
   { key: "network", setting: "statNetwork", label: "Network", icon: 0xf05a9, template: "↓999K ↑999K" },
   { key: "fans", setting: "statFans", label: "Fans", icon: 0xf0210, template: "9999 RPM" },
-  { key: "temperature", setting: "statTemperature", label: "Temperature", icon: 0xf050f, template: "100°C" }
+  { key: "temperature", setting: "statTemperature", label: "Temperature", icon: 0xf050f, template: "100°C" },
+  { key: "battery", setting: "statBattery", label: "Battery", icon: 0xf0079, template: "100%" }
 ]
+
+var BATTERY_CHARGING_ICON = 0xf0084
+
+// Whether a stat has anything to show on this machine. Only the battery can
+// be missing: a desktop has none, and its ring stays hidden.
+function statAvailable(key, state) {
+  if (key !== "battery") return true
+  var b = (state || {}).battery
+  return !!(b && b.present)
+}
+
+// Glyph for a stat; the battery shows a charging bolt while plugged in.
+function statGlyph(key, state, fallback) {
+  if (key === "battery") {
+    var b = (state || {}).battery
+    if (b && b.present && (b.status === "Charging" || b.plugged)) return String.fromCodePoint(BATTERY_CHARGING_ICON)
+  }
+  return fallback
+}
+
+// "2h 31m", "45m"; "" without a value.
+function formatMinutes(minutes) {
+  if (!isNum(minutes) || minutes < 0) return ""
+  var h = Math.floor(minutes / 60)
+  var m = Math.round(minutes % 60)
+  return h > 0 ? h + "h " + m + "m" : m + "m"
+}
 
 // Enabled stats, in island order: [{ key, label, icon (string), template }].
 function enabledStats(settings) {
@@ -384,6 +414,8 @@ function statText(key, state) {
   case "fans":
     var rpm = maxValue(s.fans)
     return rpm === null ? "N/A" : Math.round(rpm) + " RPM"
+  case "battery":
+    return s.battery.present && isNum(s.battery.percent) ? formatPercent(s.battery.percent) : "N/A"
   }
   return "—"
 }
@@ -414,6 +446,8 @@ function statFraction(key, state) {
   case "fans":
     var rpm = maxValue(s.fans)
     return rpm === null ? -1 : clamp01(rpm / RING_FAN_RPM)
+  case "battery":
+    return s.battery.present && isNum(s.battery.percent) ? clamp01(s.battery.percent / 100) : -1
   case "network":
     var rate = (isNum(s.network.download) ? s.network.download : 0) + (isNum(s.network.upload) ? s.network.upload : 0)
     return clamp01(Math.log(1 + rate / 1024) / Math.log(1 + RING_NETWORK_BYTES / 1024))
@@ -427,6 +461,8 @@ function statFraction(key, state) {
 var LEVEL_USAGE = { warning: 80, critical: 95 }
 var LEVEL_TEMPERATURE = { warning: 85, critical: 95 }
 var LEVEL_RANK = { normal: 0, warning: 1, critical: 2 }
+// Low battery is the alarm, and only while it is running on battery.
+var LEVEL_BATTERY = { warning: 20, critical: 10 }
 
 function levelFor(value, limits) {
   if (!isNum(value)) return "normal"
@@ -448,6 +484,12 @@ function statLevel(key, state) {
   case "memory": return levelFor(s.memory.percent, LEVEL_USAGE)
   case "storage": return s.storage.length ? levelFor(s.storage[0].percent, LEVEL_USAGE) : "normal"
   case "temperature": return levelFor(s.temperature.cpu, LEVEL_TEMPERATURE)
+  case "battery":
+    var bat = s.battery
+    if (!bat.present || bat.status !== "Discharging" || !isNum(bat.percent)) return "normal"
+    if (bat.percent <= LEVEL_BATTERY.critical) return "critical"
+    if (bat.percent <= LEVEL_BATTERY.warning) return "warning"
+    return "normal"
   case "gpu":
     var level = "normal"
     for (var i = 0; i < (s.gpu || []).length; i++) {
@@ -515,6 +557,15 @@ function statDetail(key, state) {
     }).join("\n") || "No connected network interfaces"
   case "fans":
     return (s.fans || []).map(function(f) { return f.name + " · " + Math.round(f.value) + " RPM" }).join("\n") || "No readable fan sensors"
+  case "battery":
+    var b = s.battery
+    if (!b.present) return "No battery"
+    var lines = [b.status + (b.plugged && b.status !== "Charging" ? " · plugged in" : "")]
+    var left = formatMinutes(b.minutesLeft)
+    if (left) lines.push(b.status === "Charging" ? left + " until full" : left + " left")
+    if (isNum(b.watts)) lines.push((b.status === "Charging" ? "Charging at " : "Drawing ") + b.watts + " W")
+    if (isNum(b.health)) lines.push("Health " + Math.round(b.health) + "% of design capacity")
+    return lines.join("\n")
   }
   return ""
 }
@@ -1047,6 +1098,7 @@ if (typeof module !== "undefined") {
     formatPercent: formatPercent, formatBytes: formatBytes, formatRate: formatRate,
     primaryGpu: primaryGpu, statText: statText, statDetail: statDetail, temperatureSummary: temperatureSummary,
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
+    LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,

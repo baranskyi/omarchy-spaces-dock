@@ -40,7 +40,8 @@ BorderSurface {
   readonly property var cfg: spaces.cfg
   readonly property var dm: spaces.dm
   readonly property color fg: spaces.fg
-  readonly property var items: Model.enabledStats(cfg)
+  // Enabled stats that this machine can show (a desktop has no battery).
+  readonly property var items: Model.enabledStats(cfg).filter(function(m) { return Model.statAvailable(m.key, island.stats.state) })
   readonly property bool shown: items.length > 0
   readonly property int inset: Math.max(0, Math.round((height - dm.pillThickness) / 2))
   // Tighter than the workspace pills: stats are short, fixed-width values.
@@ -97,7 +98,7 @@ BorderSurface {
           color: statPill.levelColor
           trackColor: Util.alpha(island.fg, 0.12)
           discColor: statPill.level === "normal" ? "transparent" : Util.alpha(statPill.levelColor, 0.22)
-          glyph: statPill.modelData.icon
+          glyph: Model.statGlyph(statPill.modelData.key, island.stats.state, statPill.modelData.icon)
           glyphColor: island.fg
           fontFamily: island.spaces.fontFamily
           dim: !island.stats.ready
@@ -123,7 +124,7 @@ BorderSurface {
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: statPill.modelData.icon
+            text: Model.statGlyph(statPill.modelData.key, island.stats.state, statPill.modelData.icon)
             color: statPill.textColor
             opacity: island.stats.ready ? 1 : 0.5
             font.family: island.spaces.fontFamily

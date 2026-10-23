@@ -1613,6 +1613,7 @@ Panel {
             ToggleSetting { visible: root.cfg.showStats; label: "Network"; key: "statNetwork" }
             ToggleSetting { visible: root.cfg.showStats; label: "Fans"; key: "statFans" }
             ToggleSetting { visible: root.cfg.showStats; label: "Temperature"; description: "CPU package"; key: "statTemperature" }
+            ToggleSetting { visible: root.cfg.showStats; label: "Battery"; description: "Hidden on computers without a battery"; key: "statBattery" }
           }
 
           PanelSeparator { foreground: root.fg }

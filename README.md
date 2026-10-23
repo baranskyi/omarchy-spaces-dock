@@ -17,9 +17,9 @@ Four islands sit beside the dock as separate pills:
 
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Spotify appears as soon as it starts, even before a track is picked; other players only while they have a track. Click the cover or title to jump to the player's window.
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
-- **System stats, on the right:** CPU, GPU, memory, storage, network, fans and CPU temperature, like the Konostat plugin. CPU, memory and temperature are on by default. Hover a value for details, click it for the system panel, right-click it to open btop.
+- **System stats, on the right:** CPU, GPU, memory, storage, network, fans, CPU temperature and battery, like the Konostat plugin. CPU, memory, temperature and battery are on by default; the battery only appears on computers that have one. Hover a value for details, click it for the system panel, right-click it to open btop.
 
-Each stat is a ring that fills with the load and has its icon in the middle, like the AI limits; switch **Style** to **Values** for pills with numbers instead. Temperature fills from 30 to 100 °C, fans at 6000 RPM, and network on a log scale up to 100 MiB/s. The exact number is in the tooltip.
+Each stat is a ring that fills with the load and has its icon in the middle, like the AI limits; switch **Style** to **Values** for pills with numbers instead. Temperature fills from 30 to 100 °C, fans at 6000 RPM, network on a log scale up to 100 MiB/s, and the battery with its charge. The battery icon gets a bolt while it is plugged in. The exact number is in the tooltip, and for the battery also the time left or until full, the power draw and the battery's health.
 
 A stat has no alarm colour while things are normal: the ring uses the dock's text colour. It turns yellow under heavy load or heat and red at the extreme. Both are fixed colours, so they mean the same in every theme:
 
@@ -27,6 +27,7 @@ A stat has no alarm colour while things are normal: the ring uses the dock's tex
 |---|---|---|
 | CPU, GPU, memory, storage | 80% | 95% |
 | CPU or GPU temperature | 85°C | 95°C |
+| Battery, only while running on it | 20% or less | 10% or less |
 
 Network and fans are never coloured.
 
@@ -121,7 +122,7 @@ Player and system stats:
 | `playerControls` | bool, previous / play / next buttons | `true` |
 | `showStats` | bool | `true` |
 | `statsStyle` | `rings` (filling ring with the icon), `values` (icon and number) | `rings` |
-| `statCpu`, `statMemory`, `statTemperature` | bool | `true` |
+| `statCpu`, `statMemory`, `statTemperature`, `statBattery` | bool | `true` |
 | `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
 
 AI limits:

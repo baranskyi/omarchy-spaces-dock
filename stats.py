@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import time
 
-ALL_METRICS = ("cpu", "memory", "temperature", "gpu", "storage", "network", "fans")
+ALL_METRICS = ("cpu", "memory", "temperature", "gpu", "storage", "network", "fans", "battery")
 CPU_CHIPS = re.compile(r"^(coretemp|k10temp|zenpower|cpu_thermal|cpu)", re.I)
 
 
@@ -215,6 +215,65 @@ def network_rates(previous, current, elapsed):
             "upload": sum(r["upload"] for r in rows)}
 
 
+def battery(root="/sys/class/power_supply"):
+    """Combined state of the system batteries; {"present": False} without one."""
+    supplies = sorted(Path(root).glob("*"))
+    batteries = [p for p in supplies if read(p / "type") == "Battery" and read(p / "scope", "System") != "Device"]
+    if not batteries:
+        return {"present": False}
+    energy_now = energy_full = energy_design = power = 0.0
+    statuses, capacities = [], []
+    for bat in batteries:
+        statuses.append(read(bat / "status", "Unknown"))
+        capacities.append(number(bat / "capacity"))
+        volts = number(bat / "voltage_now")
+        now, full, design = number(bat / "energy_now"), number(bat / "energy_full"), number(bat / "energy_full_design")
+        if now is None and volts:
+            # Charge-based batteries report µAh; convert with the voltage.
+            charge_now, charge_full = number(bat / "charge_now"), number(bat / "charge_full")
+            charge_design = number(bat / "charge_full_design")
+            now = charge_now * volts / 1e6 if charge_now is not None else None
+            full = charge_full * volts / 1e6 if charge_full is not None else None
+            design = charge_design * volts / 1e6 if charge_design is not None else None
+        watts = number(bat / "power_now")
+        if watts is None and volts:
+            current = number(bat / "current_now")
+            watts = abs(current) * volts / 1e6 if current is not None else None
+        energy_now += now or 0
+        energy_full += full or 0
+        energy_design += design or 0
+        power += abs(watts or 0)
+    plugged = any(read(p / "type") in ("Mains", "USB") and read(p / "online") == "1" for p in supplies)
+    if "Charging" in statuses:
+        status = "Charging"
+    elif "Discharging" in statuses:
+        status = "Discharging"
+    elif statuses and all(s == "Full" for s in statuses):
+        status = "Full"
+    else:
+        status = statuses[0] if statuses else "Unknown"
+    if energy_full > 0:
+        percent = round(100.0 * energy_now / energy_full, 1)
+    else:
+        known = [c for c in capacities if c is not None]
+        percent = round(sum(known) / len(known), 1) if known else None
+    minutes = None
+    if power > 0 and energy_full > 0:
+        if status == "Discharging":
+            minutes = int(round(60 * energy_now / power))
+        elif status == "Charging":
+            minutes = int(round(60 * max(0.0, energy_full - energy_now) / power))
+    return {
+        "present": True,
+        "percent": percent,
+        "status": status,
+        "plugged": plugged,
+        "watts": round(power / 1e6, 1) if power > 0 else None,
+        "minutesLeft": minutes,
+        "health": round(100.0 * energy_full / energy_design) if energy_design > 0 else None,
+    }
+
+
 class Collector:
     def __init__(self, metrics):
         self.metrics = set(metrics)
@@ -242,6 +301,8 @@ class Collector:
             out["fans"] = [{"name": f["chip"] + " " + f["name"], "value": f["value"]} for f in hwmon("fan", 1)]
         if "gpu" in self.metrics:
             out["gpu"] = gpus()
+        if "battery" in self.metrics:
+            out["battery"] = battery()
         if "storage" in self.metrics:
             if now - self.storage_time >= 30:
                 self.storage = storage()

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- A battery ring in the system stats. It fills with the charge and shows a bolt while plugged in; the tooltip has the status, the time left or until full, the power draw and the battery's health. It turns yellow at 20% and red at 10%, only while running on battery. On by default (`statBattery`), and hidden on computers without a battery.
+
 ## 0.7.1
 
 - Privacy fix from the marketplace review: the bundled Grok collector no longer reads Grok session history or writes an activity summary (`grok-scan.json`), even in `--limits-only` mode; that code is gone. Its cache directory is made owner-only (`0700`) and every file it writes, including the refresh lock, is `0600`. The unused `--write` option is removed.

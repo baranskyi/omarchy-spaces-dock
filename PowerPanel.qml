@@ -141,6 +141,8 @@ Panel {
     // Measured from the window edge; the dock floats bottomMargin above it.
     gap: Style.gapsOut + root.bottomMargin
     padding: Style.space(10)
+    // No frame: the card reads as part of the dock, like its pills.
+    borderSpec: Border.none()
     contentWidth: Math.ceil(content.implicitWidth) + panel.padding * 2 + Border.left(panel.borderSpec) + Border.right(panel.borderSpec)
     contentHeight: panel.fittedContentHeight(content.implicitHeight)
 

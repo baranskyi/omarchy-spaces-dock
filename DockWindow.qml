@@ -23,6 +23,7 @@ PanelWindow {
   property alias spaces: spaces
   property alias systemPanel: systemPanel
   property alias powerPanel: powerPanel
+  property alias awakePanel: awakePanel
 
   visible: service.ready && selected && !hiddenWithBar
 
@@ -54,6 +55,7 @@ PanelWindow {
     Region { item: limitsIsland }
     Region { item: statsIsland }
     Region { item: controlsIsland }
+    Region { item: awakeIsland }
   }
 
   // ------------------------------------------------------------ stand-in bar
@@ -118,10 +120,10 @@ PanelWindow {
 
   // The workspace pill (dockSurface) is always centered. The other pills sit
   // beside it in cfg.islandOrder and can be dragged to a new place.
-  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland, controls: controlsIsland })
+  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland, controls: controlsIsland, awake: awakeIsland })
   readonly property var islandX: Model.islandLayout(
     cfg.islandOrder,
-    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width, controls: controlsIsland.width },
+    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width, controls: controlsIsland.width, awake: awakeIsland.width },
     { x: dockSurface.x, width: dockSurface.width },
     islandGap, full, width)
 
@@ -244,7 +246,7 @@ PanelWindow {
     }
   }
 
-  // Player, AI limits, system stats and controls: separate pills beside the centered
+  // Player, AI limits, system stats, controls and Stay Awake: separate pills beside the centered
   // dock (or at the ends of the strip in full-width mode), placed by islandX.
   QuickfileIsland {
     id: quickfileIsland
@@ -321,11 +323,27 @@ PanelWindow {
     dock: dockWindow
   }
 
+  AwakeIsland {
+    id: awakeIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.islandPos("awake")
+    z: dockWindow.draggingId === "awake" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "awake" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    service: dockWindow.service
+    picker: awakePanel
+    spaces: spaces
+    dock: dockWindow
+  }
+
   IslandDrag { island: quickfileIsland; islandId: "quickfile" }
   IslandDrag { island: playerIsland; islandId: "player" }
   IslandDrag { island: limitsIsland; islandId: "limits" }
   IslandDrag { island: statsIsland; islandId: "stats" }
   IslandDrag { island: controlsIsland; islandId: "controls" }
+  IslandDrag { island: awakeIsland; islandId: "awake" }
 
   // CPU, memory, network and disk dashboard above the stats island.
   SystemPanel {
@@ -338,13 +356,35 @@ PanelWindow {
   }
 
   // Power profile picker above the battery ring.
-  PowerPanel {
+  RingPicker {
     id: powerPanel
+    moduleName: "io.github.baranskyi.spaces-dock.power"
     bar: dockBar
     anchor: statsIsland.batteryItem || statsIsland
     bottomMargin: dockWindow.cfg.bottomMargin
     ringSize: statsIsland.ringSize
     active: dockWindow.visible && statsIsland.shown && statsIsland.batteryItem !== null
+    options: dockWindow.service.power.unavailable ? [] : dockWindow.service.power.profiles
+    current: dockWindow.service.power.active
+    fallbackCaption: "Power"
+    emptyCaption: "No power profiles"
+    onOpenedChanged: if (opened) dockWindow.service.power.refresh()
+    onChosen: function(key) { dockWindow.service.power.set(key) }
+  }
+
+  // Stay Awake mode picker above its pill.
+  RingPicker {
+    id: awakePanel
+    moduleName: "io.github.baranskyi.spaces-dock.awake"
+    bar: dockBar
+    anchor: awakeIsland.ringItem
+    bottomMargin: dockWindow.cfg.bottomMargin
+    ringSize: awakeIsland.ringSize
+    active: dockWindow.visible && awakeIsland.shown
+    options: Model.awakeOptions()
+    current: dockWindow.service.awake.mode
+    fallbackCaption: "Stay Awake"
+    onChosen: function(key) { dockWindow.service.setAwakeMode(key) }
   }
 
   Spaces {

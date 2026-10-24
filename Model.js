@@ -38,9 +38,15 @@ var DEFAULTS = {
   showBrightness: true,       // per monitor; hidden where it cannot be read
   showLanguage: true,         // only with more than one keyboard layout
 
+  // Stay Awake pill. The mode it turns on: "screens-on" (nothing idles) or
+  // "screens-off" (screens go dark, nothing locks or sleeps). Turning it on or
+  // off is Omarchy's own stay-awake flag.
+  showAwake: true,
+  stayAwakeMode: "screens-on",
+
   // Left-to-right order of the pills. "spaces" (the workspace pill) always
   // stays centered; the others sit beside it and can be dragged around.
-  islandOrder: ["quickfile", "player", "spaces", "limits", "stats", "controls"],
+  islandOrder: ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"],
 
   // QuickFile button pill: opens the QuickFile plugin, or offers to install it
   showQuickfile: true,
@@ -141,6 +147,8 @@ function resolveSettings(raw) {
     showVolume: bool(s.showVolume, d.showVolume),
     showBrightness: bool(s.showBrightness, d.showBrightness),
     showLanguage: bool(s.showLanguage, d.showLanguage),
+    showAwake: bool(s.showAwake, d.showAwake),
+    stayAwakeMode: oneOf(s.stayAwakeMode, STAY_AWAKE_MODES, d.stayAwakeMode),
     islandOrder: normalizeIslandOrder(s.islandOrder),
     showQuickfile: bool(s.showQuickfile, d.showQuickfile),
     showLimits: bool(s.showLimits, d.showLimits),
@@ -347,6 +355,65 @@ function formatMinutes(minutes) {
   var h = Math.floor(minutes / 60)
   var m = Math.round(minutes % 60)
   return h > 0 ? h + "h " + m + "m" : m + "m"
+}
+
+// ------------------------------------------------------------ stay awake
+
+var STAY_AWAKE_MODES = ["screens-on", "screens-off"]
+
+// Picker options, top to bottom.
+var AWAKE_OPTIONS = [
+  { key: "screens-on", label: "Screens on", icon: 0xf0176 },
+  { key: "screens-off", label: "Screens off", icon: 0xf0d90 },
+  { key: "normal", label: "Normal", icon: 0xf0904 }
+]
+
+function awakeOptions() {
+  return AWAKE_OPTIONS.map(function(o) { return { key: o.key, label: o.label, icon: String.fromCodePoint(o.icon) } })
+}
+
+// "normal" while Omarchy's stay-awake flag is off, else the chosen mode.
+function awakeMode(stayAwake, setting) {
+  if (!stayAwake) return "normal"
+  return setting === "screens-off" ? "screens-off" : "screens-on"
+}
+
+// The pill's glyph: a cup while nothing idles, a dark monitor while screens
+// may go off, an empty cup when Stay Awake is off.
+function awakeGlyph(mode) {
+  if (mode === "screens-on") return String.fromCodePoint(0xf0176)
+  if (mode === "screens-off") return String.fromCodePoint(0xf0d90)
+  return String.fromCodePoint(0xf06ca)
+}
+
+// Omarchy's idle timeouts from shell.json, in seconds: { screensaver, lock }.
+function idleTimeouts(raw) {
+  var idle = {}
+  try {
+    var parsed = JSON.parse(raw)
+    if (parsed && parsed.idle && typeof parsed.idle === "object") idle = parsed.idle
+  } catch (e) {}
+  function seconds(value, fallback) {
+    var n = Number(value)
+    return value === undefined || value === null || !isFinite(n) || n < 0 ? fallback : Math.round(n)
+  }
+  return { screensaver: seconds(idle.screensaver, 150), lock: seconds(idle.lock, 300) }
+}
+
+// With "screens-off", screens go dark when they would in normal mode, at
+// the lock timeout, or at the screensaver one if locking is off.
+function screenOffSeconds(timeouts) {
+  var t = timeouts || {}
+  if (t.lock > 0) return t.lock
+  if (t.screensaver > 0) return t.screensaver
+  return 300
+}
+
+// "2.5 min", "5 min", "45 s".
+function formatSeconds(seconds) {
+  if (seconds < 60) return seconds + " s"
+  var minutes = Math.round(seconds / 6) / 10
+  return minutes + " min"
 }
 
 // ------------------------------------------------------------ controls
@@ -693,7 +760,7 @@ function statDetail(key, state) {
 
 // ------------------------------------------------------------ pill order
 
-var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
+var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]
 
 // A valid order: every known pill exactly once. Unknown ids are dropped and
 // missing ones go back to their default slot.
@@ -1295,6 +1362,8 @@ if (typeof module !== "undefined") {
     LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
     POWER_PROFILES: POWER_PROFILES, parsePowerProfiles: parsePowerProfiles,
     volumeGlyph: volumeGlyph, brightnessGlyph: brightnessGlyph, isInternalDisplay: isInternalDisplay, wheelSteps: wheelSteps,
+    STAY_AWAKE_MODES: STAY_AWAKE_MODES, awakeOptions: awakeOptions, awakeMode: awakeMode, awakeGlyph: awakeGlyph,
+    idleTimeouts: idleTimeouts, screenOffSeconds: screenOffSeconds, formatSeconds: formatSeconds,
     LANGUAGES: LANGUAGES, languageFor: languageFor, isTypedKeyboard: isTypedKeyboard, selectKeyboard: selectKeyboard, eventKeyboardName: eventKeyboardName,
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,

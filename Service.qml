@@ -11,7 +11,8 @@ import "Model.js" as Model
 //   - the media player and system stats shown by the dock's islands,
 //   - the QuickFile button's state and action,
 //   - workspace rules and the workspace pill being dragged between monitors,
-//   - IPC: open/close/toggle/peek/system/quickfile/agent/playPause/next/previous/refreshLimits,
+//   - Stay Awake: Omarchy's stay-awake flag plus the dock's own screen-off mode,
+//   - IPC: open/close/toggle/peek/system/power/awake/quickfile/agent/playPause/next/previous/refreshLimits,
 //   - one DockWindow per screen.
 Item {
   id: root
@@ -42,8 +43,13 @@ Item {
   function readConfig(raw) {
     var entry = Model.pluginEntry(raw, root.pluginId)
     if (entry) root.setEntry(entry)
+    var timeouts = Model.idleTimeouts(raw)
+    if (JSON.stringify(timeouts) !== JSON.stringify(root.idleTimeouts)) root.idleTimeouts = timeouts
     root.ready = true
   }
+
+  // Omarchy's idle timeouts (shell.json "idle"), for Stay Awake.
+  property var idleTimeouts: ({ screensaver: 150, lock: 300 })
 
   function persist(entry) {
     if (root.shell && typeof root.shell.updateEntryInline === "function")
@@ -168,6 +174,8 @@ Item {
   property alias limits: limitsModel
   property alias audio: audioModel
   property alias keyboard: keyboardModel
+  property alias power: powerModel
+  property alias awake: awakeModel
 
   Media {
     id: mediaModel
@@ -181,6 +189,31 @@ Item {
 
   Audio { id: audioModel }
   Keyboard { id: keyboardModel }
+  PowerProfiles { id: powerModel }
+
+  // ------------------------------------------------------------ Stay Awake
+
+  Awake {
+    id: awakeModel
+    setting: root.cfg.stayAwakeMode
+    screenOffSeconds: Model.screenOffSeconds(root.idleTimeouts)
+  }
+
+  // "screens-on" | "screens-off" | "normal". The two awake modes are
+  // remembered in stayAwakeMode, so right-click brings back the last one.
+  function setAwakeMode(mode) {
+    if (mode === "normal") {
+      awakeModel.setStayAwake(false)
+      return
+    }
+    if (Model.STAY_AWAKE_MODES.indexOf(mode) === -1) return
+    if (mode !== root.cfg.stayAwakeMode) root.applySetting({ stayAwakeMode: mode })
+    awakeModel.setStayAwake(true)
+  }
+
+  function toggleAwake() {
+    root.setAwakeMode(awakeModel.mode === "normal" ? root.cfg.stayAwakeMode : "normal")
+  }
 
   Limits {
     id: limitsModel
@@ -298,6 +331,20 @@ Item {
     function quickfile(): void { root.activateQuickfile() }
     function system(): void { var d = root.focusedDock(); if (d) d.systemPanel.toggle() }
     function power(): void { var d = root.focusedDock(); if (d && d.powerPanel.active) d.powerPanel.toggle() }
+    // "screens-on", "screens-off" or "normal" sets the mode, "toggle" turns
+    // Stay Awake on or off, "picker" opens the mode picker, "status" reports
+    // it. Answers with the mode.
+    function awake(mode: string): string {
+      if (mode === "toggle") root.toggleAwake()
+      else if (mode === "picker") {
+        var d = root.focusedDock()
+        if (d && d.awakePanel.active) d.awakePanel.toggle()
+      } else if (mode !== "status") {
+        if (mode !== "normal" && Model.STAY_AWAKE_MODES.indexOf(mode) === -1) return "unknown mode: " + mode
+        root.setAwakeMode(mode)
+      }
+      return awakeModel.mode
+    }
     function refreshLimits(): void { limitsModel.refresh() }
     function playPause(): string { return mediaModel.playPause() ? "ok" : "no player" }
     function next(): string { return mediaModel.next() ? "ok" : "no player" }

@@ -518,13 +518,13 @@ test("llm_limits.py reports a missing collector without crashing", () => {
 })
 
 test("normalizeIslandOrder keeps every pill once and restores missing ones", () => {
-  const all = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
+  const all = ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]
   assert.deepStrictEqual(M.resolveSettings({}).islandOrder, all)
-  assert.deepStrictEqual(M.normalizeIslandOrder(["controls", "stats", "spaces", "player", "limits", "quickfile"]), ["controls", "stats", "spaces", "player", "limits", "quickfile"])
+  assert.deepStrictEqual(M.normalizeIslandOrder(["awake", "controls", "stats", "spaces", "player", "limits", "quickfile"]), ["awake", "controls", "stats", "spaces", "player", "limits", "quickfile"])
   // An order saved before the QuickFile pill existed gets it back at its default slot.
-  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats", "controls"]), all)
+  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats", "controls", "awake"]), all)
   const fixed = M.normalizeIslandOrder(["stats", "bogus", "stats", "spaces"])
-  assert.deepStrictEqual(fixed.slice().sort(), ["controls", "limits", "player", "quickfile", "spaces", "stats"])
+  assert.deepStrictEqual(fixed.slice().sort(), ["awake", "controls", "limits", "player", "quickfile", "spaces", "stats"])
   assert.strictEqual(fixed.indexOf("stats"), fixed.lastIndexOf("stats"))
   assert.deepStrictEqual(M.normalizeIslandOrder("nope"), all)
 })
@@ -708,10 +708,10 @@ test("controls: settings, island order, volume and brightness glyphs, wheel step
   assert.strictEqual(cfg.showBrightness, true)
   assert.strictEqual(cfg.showLanguage, true)
   assert.strictEqual(M.resolveSettings({ showVolume: false }).showVolume, false)
-  assert.deepStrictEqual(cfg.islandOrder, ["quickfile", "player", "spaces", "limits", "stats", "controls"])
-  // An order saved before the controls island existed gets it at the right end.
+  assert.deepStrictEqual(cfg.islandOrder, ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"])
+  // An order saved before the controls and Stay Awake pills existed gets them at the right end.
   assert.deepStrictEqual(M.normalizeIslandOrder(["quickfile", "player", "limits", "spaces", "stats"]),
-    ["quickfile", "player", "limits", "spaces", "stats", "controls"])
+    ["quickfile", "player", "limits", "spaces", "stats", "controls", "awake"])
   const cp = n => String.fromCodePoint(n)
   assert.strictEqual(M.volumeGlyph(0.88, false), cp(0xf057e))
   assert.strictEqual(M.volumeGlyph(0.5, false), cp(0xf0580))
@@ -761,6 +761,35 @@ test("keyboard layout: emblems, keyboard choice and activelayout events", () => 
   assert.strictEqual(M.eventKeyboardName("by-tech-gaming-keyboard,Russian"), "by-tech-gaming-keyboard")
   assert.strictEqual(M.eventKeyboardName("hl-virtual-keyboard-fcitx5,Russian"), "")
   assert.strictEqual(M.eventKeyboardName(""), "")
+})
+
+test("stay awake: modes, glyphs, picker options and Omarchy's idle timeouts", () => {
+  const cfg = M.resolveSettings({})
+  assert.strictEqual(cfg.showAwake, true)
+  assert.strictEqual(cfg.stayAwakeMode, "screens-on")
+  assert.strictEqual(M.resolveSettings({ stayAwakeMode: "screens-off" }).stayAwakeMode, "screens-off")
+  assert.strictEqual(M.resolveSettings({ stayAwakeMode: "normal" }).stayAwakeMode, "screens-on")
+  assert.strictEqual(M.awakeMode(false, "screens-off"), "normal")
+  assert.strictEqual(M.awakeMode(true, "screens-off"), "screens-off")
+  assert.strictEqual(M.awakeMode(true, "screens-on"), "screens-on")
+  assert.strictEqual(M.awakeMode(true, "bogus"), "screens-on")
+  const cp = n => String.fromCodePoint(n)
+  assert.strictEqual(M.awakeGlyph("screens-on"), cp(0xf0176))
+  assert.strictEqual(M.awakeGlyph("screens-off"), cp(0xf0d90))
+  assert.strictEqual(M.awakeGlyph("normal"), cp(0xf06ca))
+  assert.deepStrictEqual(M.awakeOptions().map(o => o.key), ["screens-on", "screens-off", "normal"])
+  assert.strictEqual(M.awakeOptions()[1].icon, cp(0xf0d90))
+  assert.deepStrictEqual(M.idleTimeouts(JSON.stringify({ idle: { lock: 300, screensaver: 150 } })), { screensaver: 150, lock: 300 })
+  assert.deepStrictEqual(M.idleTimeouts(JSON.stringify({ idle: { lock: 0 } })), { screensaver: 150, lock: 0 })
+  assert.deepStrictEqual(M.idleTimeouts("{}"), { screensaver: 150, lock: 300 })
+  assert.deepStrictEqual(M.idleTimeouts("not json"), { screensaver: 150, lock: 300 })
+  assert.deepStrictEqual(M.idleTimeouts(JSON.stringify({ idle: { lock: -5, screensaver: "x" } })), { screensaver: 150, lock: 300 })
+  assert.strictEqual(M.screenOffSeconds({ screensaver: 150, lock: 300 }), 300)
+  assert.strictEqual(M.screenOffSeconds({ screensaver: 150, lock: 0 }), 150)
+  assert.strictEqual(M.screenOffSeconds({ screensaver: 0, lock: 0 }), 300)
+  assert.strictEqual(M.formatSeconds(150), "2.5 min")
+  assert.strictEqual(M.formatSeconds(300), "5 min")
+  assert.strictEqual(M.formatSeconds(45), "45 s")
 })
 
 if (failed) { console.log(failed + " failed"); process.exit(1) }

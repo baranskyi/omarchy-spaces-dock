@@ -1,121 +1,97 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "Model.js" as Model
 
-// Power profile picker for Spaces Dock: a narrow card above the battery ring
-// with one ring per power profile, stacked from performance at the top to
-// power saver at the bottom. The active profile's ring is filled. Choosing
-// one runs omarchy-powerprofiles-set, which also remembers the choice for
-// the current power source (AC or battery), like Omarchy's own power panel.
+// A narrow, frameless card above a dock ring with one ring per option,
+// stacked top to bottom; the current option's ring is filled. Used for the
+// battery's power profiles and the Stay Awake modes. Hover or the arrow keys
+// show an option's name, click or Enter emits chosen(key), Esc closes.
 Panel {
   id: root
 
-  moduleName: "io.github.baranskyi.spaces-dock.power"
   ipcTarget: ""
   manageIpc: false
 
-  // The battery ring the card opens above.
+  // The ring the card opens above.
   property Item anchor: null
   property int bottomMargin: 0
   property int ringSize: 40
   property bool active: true
 
-  // Shown until the first list arrives, so the card does not grow on open.
-  property var profiles: Model.parsePowerProfiles("power-saver\nbalanced\nperformance").profiles
-  property string activeProfile: ""
-  property bool unavailable: false
+  // [{ key, label, icon (glyph string) }], top to bottom.
+  property var options: []
+  property string current: ""
+  // Caption with nothing hovered and no current option, and with no options.
+  property string fallbackCaption: ""
+  property string emptyCaption: ""
   // Keyboard or hover cursor; -1 for none.
   property int selectedIndex: -1
+  // The option just chosen, shown as current until `current` catches up.
+  property string pending: ""
+
+  signal chosen(string key)
+
+  readonly property string shownCurrent: pending !== "" ? pending : current
 
   // Popup content sits on the popup background, like the system panel.
   readonly property color foreground: bar ? bar.foreground : Color.popups.text
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   readonly property string caption: {
-    if (root.unavailable) return "No power profiles"
-    var shown = root.selectedIndex >= 0 && root.selectedIndex < root.profiles.length
-      ? root.profiles[root.selectedIndex]
-      : root.profiles.filter(function(p) { return p.key === root.activeProfile })[0]
-    return shown ? shown.label : "Power"
+    if (root.options.length === 0) return root.emptyCaption
+    var shown = root.selectedIndex >= 0 && root.selectedIndex < root.options.length
+      ? root.options[root.selectedIndex]
+      : root.options.filter(function(o) { return o.key === root.shownCurrent })[0]
+    return shown ? shown.label : root.fallbackCaption
   }
 
   // Wide enough for every label, so the card keeps its size while hovering.
   readonly property real captionWidth: {
-    var labels = root.unavailable ? ["No power profiles"] : root.profiles.map(function(p) { return p.label })
-    var width = captionMetrics.advanceWidth("Power")
+    var labels = root.options.length === 0 ? [root.emptyCaption] : root.options.map(function(o) { return o.label })
+    var width = captionMetrics.advanceWidth(root.fallbackCaption)
     for (var i = 0; i < labels.length; i++) width = Math.max(width, captionMetrics.advanceWidth(labels[i]))
     return Math.ceil(width)
   }
 
-  function refresh() {
-    if (!listProc.running) listProc.running = true
-  }
-
-  function setProfile(key) {
-    if (!key || setProc.running) return
-    root.activeProfile = key
-    setProc.command = ["omarchy-powerprofiles-set", "autodetect", key]
-    setProc.running = true
+  function choose(key) {
+    if (!key) return
+    root.pending = key
+    root.chosen(key)
     closeTimer.restart()
   }
 
   function moveCursor(delta) {
-    if (delta === 0 || root.profiles.length === 0) return
+    if (delta === 0 || root.options.length === 0) return
     if (root.selectedIndex < 0) {
-      var current = root.profiles.map(function(p) { return p.key }).indexOf(root.activeProfile)
+      var current = root.options.map(function(o) { return o.key }).indexOf(root.shownCurrent)
       root.selectedIndex = current >= 0 ? current : 0
       return
     }
-    root.selectedIndex = Math.max(0, Math.min(root.profiles.length - 1, root.selectedIndex + delta))
+    root.selectedIndex = Math.max(0, Math.min(root.options.length - 1, root.selectedIndex + delta))
   }
 
   function activateCursor() {
-    if (root.selectedIndex >= 0 && root.selectedIndex < root.profiles.length)
-      root.setProfile(root.profiles[root.selectedIndex].key)
+    if (root.selectedIndex >= 0 && root.selectedIndex < root.options.length)
+      root.choose(root.options[root.selectedIndex].key)
   }
 
   visible: true
   implicitWidth: 0
   implicitHeight: 0
 
+  onCurrentChanged: root.pending = ""
+
   onOpenedChanged: {
     if (opened) {
       closeTimer.stop()
       root.selectedIndex = -1
-      root.refresh()
+      root.pending = ""
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
     }
   }
 
   onActiveChanged: if (!active && opened) close()
-
-  Process {
-    id: listProc
-    command: ["omarchy-powerprofiles-list", "--active-state"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var parsed = Model.parsePowerProfiles(text)
-        // Around plug and unplug events the list can come back empty for a
-        // moment; keep the last one unless there never was one.
-        if (parsed.profiles.length === 0) {
-          if (root.activeProfile === "") root.unavailable = true
-          return
-        }
-        root.unavailable = false
-        root.profiles = parsed.profiles
-        root.activeProfile = parsed.active
-      }
-    }
-  }
-
-  Process {
-    id: setProc
-    onExited: root.refresh()
-  }
 
   // Leaves the new choice on screen for a moment before closing.
   Timer {
@@ -170,14 +146,14 @@ Panel {
         }
 
         Repeater {
-          model: root.unavailable ? [] : root.profiles
+          model: root.options
 
           delegate: Item {
             id: option
 
             required property var modelData
             required property int index
-            readonly property bool current: root.activeProfile === modelData.key
+            readonly property bool isCurrent: root.shownCurrent === modelData.key
             readonly property bool hasCursor: root.selectedIndex === index
 
             anchors.horizontalCenter: parent.horizontalCenter
@@ -186,15 +162,15 @@ Panel {
 
             StatRing {
               anchors.fill: parent
-              fraction: option.current ? 1 : -1
+              fraction: option.isCurrent ? 1 : -1
               color: root.foreground
               trackColor: Util.alpha(root.foreground, option.hasCursor ? 0.3 : 0.14)
-              discColor: option.current ? Util.alpha(root.foreground, 0.16)
+              discColor: option.isCurrent ? Util.alpha(root.foreground, 0.16)
                 : option.hasCursor ? Util.alpha(root.foreground, 0.08) : "transparent"
               glyph: option.modelData.icon
               glyphColor: root.foreground
               fontFamily: root.fontFamily
-              dim: !option.current && !option.hasCursor
+              dim: !option.isCurrent && !option.hasCursor
               scale: option.hasCursor ? 1.08 : 1
               Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             }
@@ -207,7 +183,7 @@ Panel {
                 if (containsMouse) root.selectedIndex = option.index
                 else if (root.selectedIndex === option.index) root.selectedIndex = -1
               }
-              onClicked: root.setProfile(option.modelData.key)
+              onClicked: root.choose(option.modelData.key)
             }
           }
         }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0
+
+- A Stay Awake pill after the controls, with a picker of three modes: screens on (no screensaver, lock, screen off or sleep), screens off (the screens go dark at Omarchy's lock timeout without locking and wake on input, the computer does not sleep) and normal (Omarchy's idle as usual). Right-click turns Stay Awake on or off in the last mode. It builds on Omarchy's own stay-awake flag, so the top-bar indicator and `omarchy toggle idle` stay in step, and holds a systemd inhibitor against idle and sleep while it is on. Settings `showAwake` and `stayAwakeMode`; IPC `awake <mode>`.
+- The power profile picker is now a shared `RingPicker`, used by both pickers.
+
 ## 0.10.0
 
 - Drag a workspace pill, or one of its app icons, onto another monitor to move that workspace there. While you hold it over that monitor, its dock shows a slot with the workspace number. A short drag that stays on the same monitor does nothing, and a click still focuses as before.

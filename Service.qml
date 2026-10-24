@@ -10,6 +10,7 @@ import "Model.js" as Model
 //     written back through the shell's updateEntryInline,
 //   - the media player and system stats shown by the dock's islands,
 //   - the QuickFile button's state and action,
+//   - workspace rules and the workspace pill being dragged between monitors,
 //   - IPC: open/close/toggle/peek/system/quickfile/agent/playPause/next/previous/refreshLimits,
 //   - one DockWindow per screen.
 Item {
@@ -102,6 +103,61 @@ Item {
     var names = []
     for (var i = 0; i < screens.length; i++) if (screens[i]) names.push(String(screens[i].name || ""))
     return names
+  }
+
+  // ------------------------------------------------------------ workspaces
+
+  // Monitors that workspace rules send numbered workspaces to, as
+  // { id: output name }. With perMonitor, each dock shows the always-shown
+  // workspaces that do not exist yet on the monitor they will open on.
+  property var workspaceHomes: ({})
+
+  Process {
+    id: homesProbe
+    command: ["bash", "-c", "printf '{\"rules\":%s,\"monitors\":%s}' \"$(hyprctl -j workspacerules)\" \"$(hyprctl -j monitors)\""]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var homes = Model.workspaceHomes(text)
+        if (homes) root.workspaceHomes = homes
+      }
+    }
+  }
+
+  Timer {
+    id: homesTimer
+    interval: 300
+    running: true
+    onTriggered: if (!homesProbe.running) homesProbe.running = true
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      switch (event.name) {
+      case "configreloaded":
+      case "monitoradded":
+      case "monitoraddedv2":
+      case "monitorremoved":
+      case "monitorremovedv2":
+        homesTimer.restart()
+        break
+      }
+    }
+  }
+
+  // A workspace pill being dragged to another monitor: { id, from, to } with
+  // output names, or null. Shared so the dock under the pointer can show
+  // where the workspace will land.
+  property var workspaceDrag: null
+
+  function dragWorkspace(id, from, to) {
+    var d = root.workspaceDrag
+    if (d && d.id === id && d.from === from && d.to === to) return
+    root.workspaceDrag = { id: id, from: from, to: to }
+  }
+
+  function endWorkspaceDrag() {
+    root.workspaceDrag = null
   }
 
   // ------------------------------------------------------------ player and stats

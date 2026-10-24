@@ -83,6 +83,11 @@ Panel {
     return w && w.screen ? Hyprland.monitorFor(w.screen) : null
   }
 
+  readonly property string screenName: {
+    var w = root.QsWindow.window
+    return w && w.screen ? String(w.screen.name || "") : ""
+  }
+
   readonly property int currentWorkspaceId: {
     if (cfg.perMonitor && root.monitor && root.monitor.activeWorkspace) return root.monitor.activeWorkspace.id
     return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
@@ -240,11 +245,29 @@ Panel {
     return map
   }
 
+  // Output each numbered workspace belongs to: where Hyprland has it now,
+  // else where its workspace rule will open it.
+  readonly property var workspaceMonitors: {
+    var map = ({})
+    var homes = root.service ? root.service.workspaceHomes : ({})
+    for (var id in homes) map[id] = homes[id]
+    var values = Hyprland.workspaces.values
+    for (var i = 0; i < values.length; i++) {
+      var ws = values[i]
+      if (ws.id > 0 && ws.monitor) map[ws.id] = String(ws.monitor.name)
+    }
+    return map
+  }
+
+  readonly property var persistentIds: Model.dockPersistentIds(
+    cfg.persistentWorkspaces, cfg.perMonitor && root.monitor !== null, root.workspaceMonitors,
+    root.screenName, root.service ? root.service.primaryScreenName : "")
+
   readonly property var workspaceIds: {
     var occupied = ({})
     for (var id in workspaceMap) occupied[id] = workspaceMap[id].windows.length
     var active = root.currentWorkspaceId > 0 ? [root.currentWorkspaceId] : []
-    return Model.workspaceIds(occupied, active, cfg.persistentWorkspaces, cfg.hideEmpty)
+    return Model.workspaceIds(occupied, active, root.persistentIds, cfg.hideEmpty)
   }
 
   function focusWorkspace(id) {
@@ -271,6 +294,88 @@ Panel {
     focusWorkspace(id)
   }
 
+  function moveWorkspaceToMonitor(id, monitorName) {
+    run("hyprctl dispatch " + Util.shellQuote("hl.dsp.workspace.move({ workspace = \"" + id + "\", monitor = \"" + monitorName + "\" })")
+      + " >/dev/null 2>&1 || hyprctl dispatch moveworkspacetomonitor " + Util.shellQuote(id + " " + monitorName))
+  }
+
+  // ------------------------------------------------------------ drag to another monitor
+
+  // Dragging a pill (or one of its icons) and letting go over another
+  // monitor moves that workspace there. While a button is held the pointer
+  // stays with this dock's surface even over other monitors, so the press,
+  // moves and release all arrive here; the service shares the drag so the
+  // dock under the pointer can show a drop slot.
+  property int dragCandidateId: -1
+  property bool dragActive: false
+  property real dragPressX: 0
+  property real dragPressY: 0
+  // A release that ended a drag must not also click the pill or icon.
+  property bool suppressClick: false
+  readonly property int draggedWorkspaceId: dragActive ? dragCandidateId : -1
+
+  // The drop slot shown here while a workspace from another monitor's dock is
+  // being dragged over this monitor.
+  readonly property var incomingDrag: {
+    var d = root.service ? root.service.workspaceDrag : null
+    return d && d.to === root.screenName && d.from !== root.screenName ? d : null
+  }
+
+  // Screen-local scene coordinates to the global logical layout. The dock
+  // window spans the bottom of its screen, above the bottom margin.
+  function globalPoint(sceneX, sceneY) {
+    var w = root.QsWindow.window
+    var s = w ? w.screen : null
+    if (!s) return null
+    return { x: s.x + sceneX, y: s.y + s.height - root.cfg.bottomMargin - w.height + sceneY }
+  }
+
+  function screenUnder(sceneX, sceneY) {
+    var p = root.globalPoint(sceneX, sceneY)
+    if (!p) return ""
+    var screens = []
+    for (var i = 0; i < Quickshell.screens.length; i++) {
+      var s = Quickshell.screens[i]
+      if (s) screens.push({ name: String(s.name || ""), x: s.x, y: s.y, width: s.width, height: s.height })
+    }
+    return Model.screenAt(screens, p.x, p.y)
+  }
+
+  function dragPress(item, mouse, id) {
+    var p = item.mapToItem(null, mouse.x, mouse.y)
+    root.suppressClick = false
+    root.dragActive = false
+    root.dragPressX = p.x
+    root.dragPressY = p.y
+    // Nowhere to drag to with a single monitor.
+    root.dragCandidateId = Quickshell.screens.length > 1 && root.screenName !== "" ? id : -1
+  }
+
+  function dragMove(item, mouse) {
+    if (root.dragCandidateId < 0) return
+    var p = item.mapToItem(null, mouse.x, mouse.y)
+    if (!root.dragActive) {
+      if (Math.hypot(p.x - root.dragPressX, p.y - root.dragPressY) < Qt.styleHints.startDragDistance * 2) return
+      root.dragActive = true
+      root.hidePreview()
+      if (root.bar) root.bar.hideTooltip(null)
+    }
+    if (root.service) root.service.dragWorkspace(root.dragCandidateId, root.screenName, root.screenUnder(p.x, p.y))
+  }
+
+  function dragRelease() {
+    var drag = root.dragActive && root.service ? root.service.workspaceDrag : null
+    root.suppressClick = root.dragActive
+    if (drag && drag.to !== "" && drag.to !== drag.from) root.moveWorkspaceToMonitor(drag.id, drag.to)
+    root.dragCancel()
+  }
+
+  function dragCancel() {
+    if (root.dragActive && root.service) root.service.endWorkspaceDrag()
+    root.dragActive = false
+    root.dragCandidateId = -1
+  }
+
   function activateItem(item) {
     // A grouped icon that is already focused cycles through its windows.
     if (item.focused && item.addresses.length > 1) {
@@ -288,7 +393,7 @@ Panel {
   }
 
   function showTip(target, text) {
-    if (root.bar && root.cfg.tooltips && text) root.bar.showTooltip(target, text)
+    if (root.bar && root.cfg.tooltips && text && !root.dragActive) root.bar.showTooltip(target, text)
   }
 
   function hideTip(target) {
@@ -458,7 +563,7 @@ Panel {
     && root.workspaceMap[previewWorkspaceId].windows.length > 0
 
   function pillHovered(pill, hovered) {
-    if (!root.cfg.previews) return
+    if (!root.cfg.previews || root.dragActive) return
     if (hovered && pill.workspaceId !== root.currentWorkspaceId && pill.occupied) {
       previewHideTimer.stop()
       root.previewPill = pill
@@ -558,7 +663,8 @@ Panel {
     anchors.top: parent.top
     anchors.leftMargin: root.vertical ? Math.round((root.barSize - root.pillThickness) / 2) : 0
     anchors.topMargin: root.vertical ? 0 : Math.round((root.barSize - root.pillThickness) / 2)
-    columns: root.vertical ? 1 : Math.max(1, root.workspaceIds.length + 1)
+    // Pills, then the drop slot and the gear.
+    columns: root.vertical ? 1 : Math.max(1, root.workspaceIds.length + 2)
     spacing: root.dm.gap
 
     Repeater {
@@ -598,7 +704,10 @@ Panel {
         // Appear animation lives on the delegate: positioner add transitions
         // can be interrupted and leave items stuck half faded.
         property real appear: root.dur > 0 ? 0 : 1
-        opacity: appear
+        // Faded while it is being dragged to another monitor.
+        property real lift: root.draggedWorkspaceId === workspaceId ? 0.4 : 1
+        Behavior on lift { enabled: root.fastDur > 0; NumberAnimation { duration: root.fastDur } }
+        opacity: appear * lift
         scale: 0.6 + 0.4 * appear
         Component.onCompleted: if (root.dur > 0) pillAppear.start()
         NumberAnimation { id: pillAppear; target: pill; property: "appear"; to: 1; duration: root.dur; easing.type: Easing.OutBack }
@@ -645,8 +754,14 @@ Panel {
           anchors.fill: parent
           hoverEnabled: true
           acceptedButtons: Qt.LeftButton
-          cursorShape: Qt.PointingHandCursor
+          preventStealing: true
+          cursorShape: root.dragActive ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+          onPressed: function(mouse) { root.dragPress(pillMouse, mouse, pill.workspaceId) }
+          onPositionChanged: function(mouse) { if (pressed) root.dragMove(pillMouse, mouse) }
+          onReleased: root.dragRelease()
+          onCanceled: root.dragCancel()
           onClicked: {
+            if (root.suppressClick) return
             root.hidePreview()
             root.clickWorkspace(pill.workspaceId)
           }
@@ -902,9 +1017,18 @@ Panel {
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: root.cfg.middleClickClose ? (Qt.LeftButton | Qt.MiddleButton) : Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+                    cursorShape: root.dragActive ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                    // Dragging an icon drags its whole workspace.
+                    onPressed: function(mouse) {
+                      if (mouse.button === Qt.LeftButton) root.dragPress(iconMouse, mouse, pill.workspaceId)
+                      else root.suppressClick = false
+                    }
+                    onPositionChanged: function(mouse) { if (pressedButtons & Qt.LeftButton) root.dragMove(iconMouse, mouse) }
+                    onReleased: function(mouse) { if (mouse.button === Qt.LeftButton) root.dragRelease() }
+                    onCanceled: root.dragCancel()
                     onClicked: function(mouse) {
-                      if (!appIcon.item) return
+                      if (!appIcon.item || root.suppressClick) return
                       if (mouse.button === Qt.MiddleButton) root.closeWindow(appIcon.item.address)
                       else root.activateItem(appIcon.item)
                     }
@@ -937,6 +1061,65 @@ Panel {
               }
             }
           }
+        }
+      }
+    }
+
+    // Drop slot: while a workspace is dragged over this monitor from another
+    // monitor's dock, shows where it will land.
+    Item {
+      id: dropSlot
+      readonly property bool shown: root.incomingDrag !== null
+      // Kept after the drag ends so the label stays while the slot closes.
+      property int workspaceId: -1
+      readonly property real fullWidth: slotRow.implicitWidth + root.dm.pad * 2
+      property real extent: shown ? fullWidth : 0
+      Behavior on extent { enabled: root.dur > 0; NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
+
+      onShownChanged: if (shown) workspaceId = root.incomingDrag.id
+      visible: extent > 0.5
+      implicitWidth: root.vertical ? root.pillThickness : extent
+      implicitHeight: root.vertical ? extent : root.pillThickness
+      width: implicitWidth
+      height: implicitHeight
+      clip: true
+
+      Rectangle {
+        anchors.fill: parent
+        radius: root.pillRadius
+        color: Util.alpha(Color.accent, 0.18)
+        border.width: 2
+        border.color: Color.accent
+
+        SequentialAnimation on opacity {
+          running: dropSlot.shown && root.dur > 0
+          loops: Animation.Infinite
+          alwaysRunToEnd: true
+          NumberAnimation { from: 1; to: 0.55; duration: 600; easing.type: Easing.InOutSine }
+          NumberAnimation { from: 0.55; to: 1; duration: 600; easing.type: Easing.InOutSine }
+        }
+      }
+
+      Row {
+        id: slotRow
+        anchors.centerIn: parent
+        spacing: root.sp(4)
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: ""
+          color: Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Math.round(root.labelPx * 0.8)
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: Model.workspaceLabel(dropSlot.workspaceId, false, "number")
+          color: root.fg
+          font.family: root.fontFamily
+          font.pixelSize: root.labelPx
+          font.bold: true
         }
       }
     }

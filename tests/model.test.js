@@ -22,11 +22,75 @@ test("resolveSettings fills defaults and clamps", () => {
 })
 
 test("workspaceIds keeps persistent, adds occupied and active, sorted", () => {
-  assert.deepStrictEqual(M.workspaceIds({ 7: 2, 2: 0 }, [9], 3, false), [1, 2, 3, 7, 9])
+  assert.deepStrictEqual(M.workspaceIds({ 7: 2, 2: 0 }, [9], [1, 2, 3], false), [1, 2, 3, 7, 9])
 })
 
 test("workspaceIds hideEmpty keeps only occupied and active", () => {
-  assert.deepStrictEqual(M.workspaceIds({ 1: 0, 4: 1 }, [2], 5, true), [2, 4])
+  assert.deepStrictEqual(M.workspaceIds({ 1: 0, 4: 1 }, [2], [1, 2, 3, 4, 5], true), [2, 4])
+})
+
+test("dockPersistentIds without perMonitor shows 1..N on every dock", () => {
+  assert.deepStrictEqual(M.dockPersistentIds(3, false, { 1: "eDP-1", 2: "HDMI-A-1" }, "HDMI-A-1", "eDP-1"), [1, 2, 3])
+  assert.deepStrictEqual(M.dockPersistentIds(0, false, {}, "HDMI-A-1", "eDP-1"), [])
+})
+
+test("dockPersistentIds with perMonitor shows each id on one dock only", () => {
+  const where = { 1: "HDMI-A-1", 2: "HDMI-A-1", 4: "eDP-1" }
+  // 3 lives nowhere yet, so it goes to the fallback (primary) monitor.
+  assert.deepStrictEqual(M.dockPersistentIds(5, true, where, "HDMI-A-1", "eDP-1"), [1, 2])
+  assert.deepStrictEqual(M.dockPersistentIds(5, true, where, "eDP-1", "eDP-1"), [3, 4, 5])
+  // Without a fallback, unplaced ids stay visible everywhere.
+  assert.deepStrictEqual(M.dockPersistentIds(3, true, { 1: "eDP-1" }, "HDMI-A-1", ""), [2, 3])
+})
+
+test("monitorMatching resolves output names and desc: prefixes", () => {
+  const monitors = [
+    { name: "eDP-1", description: "Samsung Display Corp. 0x4165" },
+    { name: "HDMI-A-1", description: "Samsung Electric Company Odyssey G60SD HNBY800149" }
+  ]
+  assert.strictEqual(M.monitorMatching("eDP-1", monitors), "eDP-1")
+  assert.strictEqual(M.monitorMatching("desc:Samsung Electric Company Odyssey G60SD HNBY800149", monitors), "HDMI-A-1")
+  assert.strictEqual(M.monitorMatching("desc:Samsung Display", monitors), "eDP-1")
+  assert.strictEqual(M.monitorMatching("DP-2", monitors), "")
+  assert.strictEqual(M.monitorMatching("desc:", monitors), "")
+  assert.strictEqual(M.monitorMatching("", monitors), "")
+})
+
+test("workspaceHomes keeps numbered rules for connected monitors", () => {
+  const raw = JSON.stringify({
+    rules: [
+      { workspaceString: "1", monitor: "DP-2", persistent: true },
+      { workspaceString: "2", monitor: "desc:Samsung Electric Company Odyssey G60SD HNBY800149" },
+      { workspaceString: "6", monitor: "eDP-1" },
+      { workspaceString: "6", monitor: "HDMI-A-1" },
+      { workspaceString: "9" },
+      { workspaceString: "name:chat", monitor: "eDP-1" },
+      { workspaceString: "r[1-3]", monitor: "eDP-1" }
+    ],
+    monitors: [
+      { name: "eDP-1", description: "Samsung Display Corp. 0x4165" },
+      { name: "HDMI-A-1", description: "Samsung Electric Company Odyssey G60SD HNBY800149" }
+    ]
+  })
+  assert.deepStrictEqual(M.workspaceHomes(raw), { 2: "HDMI-A-1", 6: "HDMI-A-1" })
+  assert.strictEqual(M.workspaceHomes("not json"), null)
+  assert.strictEqual(M.workspaceHomes("{}"), null)
+  assert.deepStrictEqual(M.workspaceHomes(JSON.stringify({ rules: [] })), {})
+})
+
+test("screenAt finds the screen under a point, else the nearest", () => {
+  const screens = [
+    { name: "eDP-1", x: 3200, y: 178, width: 2400, height: 1500 },
+    { name: "HDMI-A-1", x: 5600, y: 208, width: 2560, height: 1440 }
+  ]
+  assert.strictEqual(M.screenAt(screens, 4000, 1600), "eDP-1")
+  assert.strictEqual(M.screenAt(screens, 5600, 1000), "HDMI-A-1")
+  assert.strictEqual(M.screenAt(screens, 7000, 1640), "HDMI-A-1")
+  // Above the Samsung's top edge, which starts 30px lower than the laptop's.
+  assert.strictEqual(M.screenAt(screens, 6000, 190), "HDMI-A-1")
+  // Far left of everything.
+  assert.strictEqual(M.screenAt(screens, 0, 500), "eDP-1")
+  assert.strictEqual(M.screenAt([], 0, 0), "")
 })
 
 test("workspaceLabel", () => {

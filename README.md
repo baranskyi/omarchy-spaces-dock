@@ -9,6 +9,7 @@ Everything Spaces does works here too:
 - Coding agents running in a terminal get a badge: a spinner while working, a pulse when they need input, a check mark when done.
 - Urgent windows pulse their workspace.
 - Scrolling switches workspaces, and middle-click can close a window.
+- With more than one monitor, drag a workspace pill onto another monitor to move the workspace there.
 - Right-click the dock to open its settings.
 
 Four islands sit beside the dock as separate pills:
@@ -95,6 +96,7 @@ The dock leaves nothing else behind except small caches in `~/.cache/omarchy/age
 | Click a pill | Focus that workspace |
 | Click an app icon | Focus that window. On a grouped icon that is already focused, cycle its windows |
 | Hover another workspace | Live preview above the dock. Click a window in it to jump there |
+| Drag a pill, or one of its icons, onto another monitor | Move that workspace to that monitor. Its dock shows a slot with the number while you hold it there |
 | Scroll over the dock | Step through workspaces |
 | Middle-click an icon | Close that window, when enabled |
 | Right-click the dock, or its gear | Settings |
@@ -187,6 +189,8 @@ All Spaces settings are kept, with the same keys. The only change is a wider ico
 | `animations` | bool | `true` |
 | `animationSpeed` | `slow`, `normal`, `fast` | `normal` |
 
+`perMonitor` lists only the workspaces on the dock's own monitor. The always-shown workspaces then appear on one dock each: the monitor a workspace is on now, else the monitor its Hyprland workspace rule names, else the primary monitor.
+
 To set a value from a script, edit the entry with `jq`. The shell and the dock both pick the change up on their own. `omarchy bar set` only works for bar widgets, so it cannot set these.
 
 ```bash
@@ -232,7 +236,7 @@ Bar widgets can only live inside the one active bar, which has no bottom slot. S
 
 ```
 manifest.json        service plugin, keepLoaded
-Service.qml          settings from shell.json, IPC, player, stats, audio and keyboard models, one DockWindow per screen
+Service.qml          settings from shell.json, IPC, player, stats, audio and keyboard models, workspace rules, the workspace drag shared between docks, one DockWindow per screen
 DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tooltips, a stand-in bar for Spaces
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
 QuickfileIsland.qml  QuickFile button pill

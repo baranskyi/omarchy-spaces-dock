@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.0
+
+- Drag a workspace pill, or one of its app icons, onto another monitor to move that workspace there. While you hold it over that monitor, its dock shows a slot with the workspace number. A short drag that stays on the same monitor does nothing, and a click still focuses as before.
+- With `perMonitor`, the always-shown workspaces (`persistentWorkspaces`) no longer appear on every monitor's dock. Each shows on one dock: the monitor it is on now, else the one its Hyprland workspace rule names, else the primary monitor.
+
 ## 0.9.0
 
 - A controls pill at the right end: a volume ring, a brightness ring for the monitor the dock is on (the backlight on a built-in display, DDC/CI on an external one) and the keyboard layout as an emblem: an American eagle for English, a hammer and sickle for Russian, a tryzub for Ukrainian. Scroll a ring to change it, click the volume to mute, right-click it for Omarchy's audio panel, click the emblem for the next layout. Changes go through Omarchy's own commands, so its OSD shows them. Settings `showVolume`, `showBrightness`, `showLanguage` in the Pills tab; the pill is draggable like the others (`controls` in `islandOrder`).

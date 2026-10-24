@@ -946,13 +946,14 @@ function normalizeAddress(address) {
 // Workspace ids to render. `occupied` maps id -> window count for every
 // normal (positive id) workspace Hyprland knows about. `activeIds` are
 // workspaces that must stay visible even when empty (focused / on-screen).
-function workspaceIds(occupied, activeIds, persistent, hideEmpty) {
+// `persistentIds` are always shown unless hideEmpty (see dockPersistentIds).
+function workspaceIds(occupied, activeIds, persistentIds, hideEmpty) {
   var ids = []
   function add(id) {
     if (id > 0 && ids.indexOf(id) === -1) ids.push(id)
   }
 
-  if (!hideEmpty) for (var p = 1; p <= persistent; p++) add(p)
+  if (!hideEmpty) for (var p = 0; p < persistentIds.length; p++) add(persistentIds[p])
   for (var key in occupied) {
     var id = Number(key)
     if (occupied[key] > 0 || !hideEmpty) add(id)
@@ -961,6 +962,78 @@ function workspaceIds(occupied, activeIds, persistent, hideEmpty) {
 
   ids.sort(function(l, r) { return l - r })
   return ids
+}
+
+// The always-shown workspaces 1..count for one dock. With perMonitor each id
+// shows only on the monitor it belongs to, so it appears on exactly one dock:
+// `monitorOf` maps id -> output name (where the workspace is now, else where
+// its workspace rule sends it), and ids with no monitor go to `fallback`.
+function dockPersistentIds(count, perMonitor, monitorOf, here, fallback) {
+  var ids = []
+  for (var id = 1; id <= count; id++) {
+    var owner = (monitorOf && monitorOf[id]) || fallback || here
+    if (!perMonitor || owner === here) ids.push(id)
+  }
+  return ids
+}
+
+// Name of the connected monitor a Hyprland monitor selector points at: an
+// output name, or "desc:" and the start of the monitor's description.
+//   monitors: [{ name, description }]
+function monitorMatching(selector, monitors) {
+  var s = String(selector || "")
+  if (s === "") return ""
+  for (var i = 0; i < (monitors || []).length; i++) {
+    var m = monitors[i]
+    if (!m || !m.name) continue
+    if (s.indexOf("desc:") === 0) {
+      var desc = s.slice(5).trim()
+      if (desc !== "" && String(m.description || "").indexOf(desc) === 0) return String(m.name)
+    } else if (String(m.name) === s) {
+      return String(m.name)
+    }
+  }
+  return ""
+}
+
+// Where workspace rules put numbered workspaces, as id -> output name, from
+// `{"rules": <hyprctl -j workspacerules>, "monitors": <hyprctl -j monitors>}`.
+// Rules for monitors that are not connected are left out; a later rule for
+// the same workspace wins. Returns null when the text does not parse.
+function workspaceHomes(rawJson) {
+  var data
+  try { data = JSON.parse(String(rawJson || "")) } catch (e) { return null }
+  if (!data || !Array.isArray(data.rules)) return null
+  var homes = ({})
+  for (var i = 0; i < data.rules.length; i++) {
+    var rule = data.rules[i] || {}
+    var id = String(rule.workspaceString || "")
+    if (!/^[0-9]+$/.test(id) || Number(id) <= 0) continue
+    var name = monitorMatching(rule.monitor, data.monitors)
+    if (name !== "") homes[Number(id)] = name
+  }
+  return homes
+}
+
+// Output under a point in the global logical layout, for dropping a dragged
+// workspace there. Outside every screen (a gap between monitors) it picks the
+// nearest one. screens: [{ name, x, y, width, height }]
+function screenAt(screens, x, y) {
+  var best = ""
+  var bestDistance = Infinity
+  for (var i = 0; i < (screens || []).length; i++) {
+    var s = screens[i]
+    if (!s || !s.name || !(s.width > 0) || !(s.height > 0)) continue
+    if (x >= s.x && x < s.x + s.width && y >= s.y && y < s.y + s.height) return String(s.name)
+    var dx = Math.max(s.x - x, 0, x - (s.x + s.width))
+    var dy = Math.max(s.y - y, 0, y - (s.y + s.height))
+    var distance = dx * dx + dy * dy
+    if (distance < bestDistance) {
+      best = String(s.name)
+      bestDistance = distance
+    }
+  }
+  return best
 }
 
 // Label text for a workspace pill.
@@ -1233,6 +1306,7 @@ if (typeof module !== "undefined") {
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,
     workspaceIds: workspaceIds, workspaceLabel: workspaceLabel, appKey: appKey,
+    dockPersistentIds: dockPersistentIds, monitorMatching: monitorMatching, workspaceHomes: workspaceHomes, screenAt: screenAt,
     sortWindows: sortWindows, iconItems: iconItems, truncate: truncate,
     focusedLabel: focusedLabel, webAppHost: webAppHost, appIdCandidates: appIdCandidates, iconPathScore: iconPathScore,
     iconNameFromPath: iconNameFromPath, stepWorkspace: stepWorkspace, mergedEntry: mergedEntry

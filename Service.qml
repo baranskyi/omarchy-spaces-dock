@@ -110,6 +110,8 @@ Item {
   property alias media: mediaModel
   property alias stats: statsModel
   property alias limits: limitsModel
+  property alias audio: audioModel
+  property alias keyboard: keyboardModel
 
   Media {
     id: mediaModel
@@ -120,6 +122,9 @@ Item {
     id: statsModel
     metrics: root.ready ? Model.statsMetricsArg(root.cfg) : ""
   }
+
+  Audio { id: audioModel }
+  Keyboard { id: keyboardModel }
 
   Limits {
     id: limitsModel

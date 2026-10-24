@@ -33,9 +33,14 @@ var DEFAULTS = {
   statFans: false,
   statBattery: true,          // hidden on computers without a battery
 
+  // Controls island: volume and brightness rings, keyboard layout emblem
+  showVolume: true,
+  showBrightness: true,       // per monitor; hidden where it cannot be read
+  showLanguage: true,         // only with more than one keyboard layout
+
   // Left-to-right order of the pills. "spaces" (the workspace pill) always
   // stays centered; the others sit beside it and can be dragged around.
-  islandOrder: ["quickfile", "player", "spaces", "limits", "stats"],
+  islandOrder: ["quickfile", "player", "spaces", "limits", "stats", "controls"],
 
   // QuickFile button pill: opens the QuickFile plugin, or offers to install it
   showQuickfile: true,
@@ -133,6 +138,9 @@ function resolveSettings(raw) {
     statNetwork: bool(s.statNetwork, d.statNetwork),
     statFans: bool(s.statFans, d.statFans),
     statBattery: bool(s.statBattery, d.statBattery),
+    showVolume: bool(s.showVolume, d.showVolume),
+    showBrightness: bool(s.showBrightness, d.showBrightness),
+    showLanguage: bool(s.showLanguage, d.showLanguage),
     islandOrder: normalizeIslandOrder(s.islandOrder),
     showQuickfile: bool(s.showQuickfile, d.showQuickfile),
     showLimits: bool(s.showLimits, d.showLimits),
@@ -339,6 +347,86 @@ function formatMinutes(minutes) {
   var h = Math.floor(minutes / 60)
   var m = Math.round(minutes % 60)
   return h > 0 ? h + "h " + m + "m" : m + "m"
+}
+
+// ------------------------------------------------------------ controls
+
+// Volume ring glyph: muted, low, medium, high.
+function volumeGlyph(volume, muted) {
+  if (muted || !isNum(volume) || volume <= 0) return String.fromCodePoint(0xf075f)
+  if (volume < 0.34) return String.fromCodePoint(0xf057f)
+  if (volume < 0.67) return String.fromCodePoint(0xf0580)
+  return String.fromCodePoint(0xf057e)
+}
+
+// Brightness ring glyph by percent.
+function brightnessGlyph(percent) {
+  if (!isNum(percent) || percent < 34) return String.fromCodePoint(0xf00de)
+  if (percent < 67) return String.fromCodePoint(0xf00df)
+  return String.fromCodePoint(0xf00e0)
+}
+
+// Built-in panels take the backlight; everything else needs DDC/CI.
+function isInternalDisplay(name) {
+  return /^(eDP|LVDS|DSI)-/.test(String(name || ""))
+}
+
+// Turns wheel deltas into whole steps of 120 (one notch), carrying the
+// remainder so a touchpad's small deltas still add up: { steps, rest }.
+function wheelSteps(carry, delta) {
+  var total = (Number(carry) || 0) + (Number(delta) || 0)
+  var steps = total > 0 ? Math.floor(total / 120) : Math.ceil(total / 120)
+  return { steps: steps, rest: total - steps * 120 }
+}
+
+// Keyboard layout emblems. The keymap description hyprctl reports
+// ("English (US)", "Russian") picks one by its first word; any other layout
+// shows a short code instead.
+var LANGUAGES = {
+  English: { key: "en", icon: "icons/lang-en.svg" },
+  Russian: { key: "ru", icon: "icons/lang-ru.svg" },
+  Ukrainian: { key: "uk", icon: "icons/lang-uk.svg" }
+}
+
+function languageFor(description) {
+  var text = String(description || "")
+  if (!text) return { key: "", icon: "", code: "", label: "" }
+  var word = text.split(/\s+/)[0]
+  var known = Object.prototype.hasOwnProperty.call(LANGUAGES, word) ? LANGUAGES[word] : null
+  return {
+    key: known ? known.key : "",
+    icon: known ? known.icon : "",
+    code: word.substring(0, 2).toUpperCase(),
+    label: text
+  }
+}
+
+// Picking the keyboard to read and switch, after Omarchy's keyboard layout
+// widget (KeyboardLayoutModel.js, MIT): buttons, the lid switch and the
+// virtual keyboard fcitx5 binds also report layouts, so they are left out,
+// and the keyboard the last activelayout event named wins, then the one
+// furthest through the layout list.
+var UNTYPED_KEYBOARDS = /^(hl-virtual-keyboard|power-button|sleep-button|lid-switch|video-bus)/
+
+function isTypedKeyboard(name) {
+  return !UNTYPED_KEYBOARDS.test(String(name || ""))
+}
+
+function selectKeyboard(keyboards, namedByEvent) {
+  var typed = (keyboards || []).filter(function(k) { return k && isTypedKeyboard(k.name) })
+  if (typed.length === 0) return null
+  var named = typed.filter(function(k) { return k.name === namedByEvent })[0]
+  if (named) return named
+  return typed.reduce(function(best, k) {
+    return (k.active_layout_index || 0) > (best.active_layout_index || 0) ? k : best
+  }, typed[0])
+}
+
+// Keyboard name from an activelayout event ("keyboard,layout"); "" for the
+// fcitx5 virtual keyboard.
+function eventKeyboardName(data) {
+  var name = String(data || "").split(",")[0]
+  return name.indexOf("hl-virtual-keyboard") === 0 ? "" : name
 }
 
 // Power profiles, top to bottom as the picker stacks them above the battery
@@ -605,7 +693,7 @@ function statDetail(key, state) {
 
 // ------------------------------------------------------------ pill order
 
-var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats"]
+var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
 
 // A valid order: every known pill exactly once. Unknown ids are dropped and
 // missing ones go back to their default slot.
@@ -1133,6 +1221,8 @@ if (typeof module !== "undefined") {
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
     LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
     POWER_PROFILES: POWER_PROFILES, parsePowerProfiles: parsePowerProfiles,
+    volumeGlyph: volumeGlyph, brightnessGlyph: brightnessGlyph, isInternalDisplay: isInternalDisplay, wheelSteps: wheelSteps,
+    LANGUAGES: LANGUAGES, languageFor: languageFor, isTypedKeyboard: isTypedKeyboard, selectKeyboard: selectKeyboard, eventKeyboardName: eventKeyboardName,
     LIMIT_PROVIDERS: LIMIT_PROVIDERS, enabledLimitProviders: enabledLimitProviders,
     limitsProvidersArg: limitsProvidersArg, limitWindows: limitWindows, mergeLimitRecord: mergeLimitRecord,
     formatResetIn: formatResetIn, limitPercent: limitPercent, limitTooltip: limitTooltip,

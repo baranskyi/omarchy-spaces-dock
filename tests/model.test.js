@@ -454,14 +454,15 @@ test("llm_limits.py reports a missing collector without crashing", () => {
 })
 
 test("normalizeIslandOrder keeps every pill once and restores missing ones", () => {
-  assert.deepStrictEqual(M.resolveSettings({}).islandOrder, ["quickfile", "player", "spaces", "limits", "stats"])
-  assert.deepStrictEqual(M.normalizeIslandOrder(["stats", "spaces", "player", "limits", "quickfile"]), ["stats", "spaces", "player", "limits", "quickfile"])
+  const all = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
+  assert.deepStrictEqual(M.resolveSettings({}).islandOrder, all)
+  assert.deepStrictEqual(M.normalizeIslandOrder(["controls", "stats", "spaces", "player", "limits", "quickfile"]), ["controls", "stats", "spaces", "player", "limits", "quickfile"])
   // An order saved before the QuickFile pill existed gets it back at its default slot.
-  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats"]), ["quickfile", "player", "spaces", "limits", "stats"])
+  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats", "controls"]), all)
   const fixed = M.normalizeIslandOrder(["stats", "bogus", "stats", "spaces"])
-  assert.deepStrictEqual(fixed.slice().sort(), ["limits", "player", "quickfile", "spaces", "stats"])
+  assert.deepStrictEqual(fixed.slice().sort(), ["controls", "limits", "player", "quickfile", "spaces", "stats"])
   assert.strictEqual(fixed.indexOf("stats"), fixed.lastIndexOf("stats"))
-  assert.deepStrictEqual(M.normalizeIslandOrder("nope"), ["quickfile", "player", "spaces", "limits", "stats"])
+  assert.deepStrictEqual(M.normalizeIslandOrder("nope"), all)
 })
 
 test("islandLayout hugs the centered spaces pill and skips hidden pills", () => {
@@ -635,6 +636,67 @@ test("stats.py reads a fake battery and handles a machine without one", () => {
   assert.deepStrictEqual(b, { present: true, percent: 50, status: "Discharging", plugged: false, watts: 10, minutesLeft: 180, health: 80 })
   assert.deepStrictEqual(none, { present: false })
   fs.rmSync(root, { recursive: true, force: true })
+})
+
+test("controls: settings, island order, volume and brightness glyphs, wheel steps", () => {
+  const cfg = M.resolveSettings({})
+  assert.strictEqual(cfg.showVolume, true)
+  assert.strictEqual(cfg.showBrightness, true)
+  assert.strictEqual(cfg.showLanguage, true)
+  assert.strictEqual(M.resolveSettings({ showVolume: false }).showVolume, false)
+  assert.deepStrictEqual(cfg.islandOrder, ["quickfile", "player", "spaces", "limits", "stats", "controls"])
+  // An order saved before the controls island existed gets it at the right end.
+  assert.deepStrictEqual(M.normalizeIslandOrder(["quickfile", "player", "limits", "spaces", "stats"]),
+    ["quickfile", "player", "limits", "spaces", "stats", "controls"])
+  const cp = n => String.fromCodePoint(n)
+  assert.strictEqual(M.volumeGlyph(0.88, false), cp(0xf057e))
+  assert.strictEqual(M.volumeGlyph(0.5, false), cp(0xf0580))
+  assert.strictEqual(M.volumeGlyph(0.1, false), cp(0xf057f))
+  assert.strictEqual(M.volumeGlyph(0.88, true), cp(0xf075f))
+  assert.strictEqual(M.volumeGlyph(0, false), cp(0xf075f))
+  assert.strictEqual(M.brightnessGlyph(2), cp(0xf00de))
+  assert.strictEqual(M.brightnessGlyph(50), cp(0xf00df))
+  assert.strictEqual(M.brightnessGlyph(90), cp(0xf00e0))
+  assert.strictEqual(M.isInternalDisplay("eDP-1"), true)
+  assert.strictEqual(M.isInternalDisplay("HDMI-A-1"), false)
+  assert.strictEqual(M.isInternalDisplay(""), false)
+  assert.deepStrictEqual(M.wheelSteps(0, 120), { steps: 1, rest: 0 })
+  assert.deepStrictEqual(M.wheelSteps(0, -240), { steps: -2, rest: 0 })
+  assert.deepStrictEqual(M.wheelSteps(0, 30), { steps: 0, rest: 30 })
+  assert.deepStrictEqual(M.wheelSteps(90, 30), { steps: 1, rest: 0 })
+  assert.deepStrictEqual(M.wheelSteps(-60, -70), { steps: -1, rest: -10 })
+})
+
+test("keyboard layout: emblems, keyboard choice and activelayout events", () => {
+  const en = M.languageFor("English (US)")
+  assert.strictEqual(en.key, "en")
+  assert.strictEqual(en.label, "English (US)")
+  assert.strictEqual(M.languageFor("Russian").key, "ru")
+  assert.strictEqual(M.languageFor("Ukrainian").key, "uk")
+  const de = M.languageFor("German (Austria)")
+  assert.deepStrictEqual([de.key, de.icon, de.code], ["", "", "GE"])
+  assert.deepStrictEqual(M.languageFor(""), { key: "", icon: "", code: "", label: "" })
+  assert.strictEqual(M.languageFor("constructor").key, "")
+  for (const name of Object.keys(M.LANGUAGES)) {
+    const file = path.join(__dirname, "..", M.LANGUAGES[name].icon)
+    assert.ok(fs.existsSync(file), file)
+    assert.ok(fs.readFileSync(file, "utf8").includes("<svg"), file)
+  }
+  // The external keyboard was switched to Russian; buttons and the fcitx5
+  // virtual keyboard do not count.
+  const seat = [
+    { name: "power-button", active_keymap: "Russian", active_layout_index: 1 },
+    { name: "at-translated-set-2-keyboard", active_keymap: "English (US)", active_layout_index: 0 },
+    { name: "by-tech-gaming-keyboard", active_keymap: "Russian", active_layout_index: 1 },
+    { name: "hl-virtual-keyboard-fcitx5", active_keymap: "Russian", active_layout_index: 1, main: true }
+  ]
+  assert.strictEqual(M.selectKeyboard(seat, "").name, "by-tech-gaming-keyboard")
+  assert.strictEqual(M.selectKeyboard(seat, "at-translated-set-2-keyboard").name, "at-translated-set-2-keyboard")
+  assert.strictEqual(M.selectKeyboard([{ name: "power-button" }], ""), null)
+  assert.strictEqual(M.selectKeyboard([], ""), null)
+  assert.strictEqual(M.eventKeyboardName("by-tech-gaming-keyboard,Russian"), "by-tech-gaming-keyboard")
+  assert.strictEqual(M.eventKeyboardName("hl-virtual-keyboard-fcitx5,Russian"), "")
+  assert.strictEqual(M.eventKeyboardName(""), "")
 })
 
 if (failed) { console.log(failed + " failed"); process.exit(1) }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- A controls pill at the right end: a volume ring, a brightness ring for the monitor the dock is on (the backlight on a built-in display, DDC/CI on an external one) and the keyboard layout as an emblem: an American eagle for English, a hammer and sickle for Russian, a tryzub for Ukrainian. Scroll a ring to change it, click the volume to mute, right-click it for Omarchy's audio panel, click the emblem for the next layout. Changes go through Omarchy's own commands, so its OSD shows them. Settings `showVolume`, `showBrightness`, `showLanguage` in the Pills tab; the pill is draggable like the others (`controls` in `islandOrder`).
+
 ## 0.8.0
 
 - A battery ring in the system stats. It fills with the charge and shows a bolt while plugged in; the tooltip has the status, the time left or until full, the power draw and the battery's health. It turns yellow at 20% and red at 10%, only while running on battery. On by default (`statBattery`), and hidden on computers without a battery.

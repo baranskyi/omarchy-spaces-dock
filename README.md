@@ -18,6 +18,7 @@ Four islands sit beside the dock as separate pills:
 - **Player, on the left:** cover art, track and artist, and previous, play and next buttons. It shows Spotify by default, or any MPRIS player. Spotify appears as soon as it starts, even before a track is picked; other players only while they have a track. Click the cover or title to jump to the player's window.
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
 - **System stats, on the right:** CPU, GPU, memory, storage, network, fans, CPU temperature and battery, like the Konostat plugin. CPU, memory, temperature and battery are on by default; the battery only appears on computers that have one. Hover a value for details, click it for the system panel, right-click it to open btop. Click the battery to switch the power profile.
+- **Controls, at the right end:** a volume ring, a brightness ring for the monitor the dock is on, and the keyboard layout as an emblem: an American eagle for English, a hammer and sickle for Russian, a tryzub for Ukrainian, and a short code for any other layout. Scroll a ring to change it. Click the volume to mute it and right-click it for Omarchy's audio panel. Click the emblem for the next layout, or scroll over it.
 
 Each stat is a ring that fills with the load and has its icon in the middle, like the AI limits; switch **Style** to **Values** for pills with numbers instead. Temperature fills from 30 to 100 °C, fans at 6000 RPM, network on a log scale up to 100 MiB/s, and the battery with its charge. The battery icon gets a bolt while it is plugged in. The exact number is in the tooltip, and for the battery also the time left or until full, the power draw and the battery's health.
 
@@ -35,7 +36,7 @@ Clicking the battery opens a power profile picker above it: Performance, Balance
 
 The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
 
-Drag the QuickFile, player, AI limits and stats pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
+Drag the QuickFile, player, AI limits, stats and controls pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
@@ -49,6 +50,7 @@ Everything it needs ships with Omarchy, and it needs no other plugin:
 - `python3` for the system stats and AI limits collectors, standard library only
 - `btop` for right-click on the stats
 - For the power profile picker: Omarchy's `omarchy-powerprofiles-list` and `omarchy-powerprofiles-set` with power-profiles-daemon
+- For the controls: Omarchy's `omarchy-audio-output-volume` and `omarchy-brightness-display`; brightness on an external monitor needs DDC/CI (`ddcutil`), otherwise its ring stays hidden
 - For AI limits: Omarchy's `omarchy-agent-usage-claude` and `omarchy-agent-usage-codex`, plus Claude Code, the Codex CLI or the Grok CLI signed in. Each provider is optional.
 - Optional: `nvidia-smi` for an NVIDIA GPU, only queried while the GPU is awake
 
@@ -111,7 +113,7 @@ Dock settings:
 | `bottomMargin` | 0 to 64 px | 0 |
 | `reserveSpace` | `true` (windows stop above the dock), `false` (floats over them) | `true` |
 | `hideWithBar` | `true` hides the dock while the bar is toggled off | `true` |
-| `islandOrder` | left-to-right ids: `quickfile`, `player`, `spaces`, `limits`, `stats` | `["quickfile", "player", "spaces", "limits", "stats"]` |
+| `islandOrder` | left-to-right ids: `quickfile`, `player`, `spaces`, `limits`, `stats`, `controls` | `["quickfile", "player", "spaces", "limits", "stats", "controls"]` |
 | `showQuickfile` | bool, the QuickFile button pill | `true` |
 
 A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
@@ -127,6 +129,8 @@ Player and system stats:
 | `statsStyle` | `rings` (filling ring with the icon), `values` (icon and number) | `rings` |
 | `statCpu`, `statMemory`, `statTemperature`, `statBattery` | bool | `true` |
 | `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
+| `showVolume`, `showBrightness` | bool | `true` |
+| `showLanguage` | bool, shown only with more than one keyboard layout | `true` |
 
 AI limits:
 
@@ -136,7 +140,7 @@ AI limits:
 | `limitClaude`, `limitCodex`, `limitGrok` | bool | `true` |
 | `limitGrokRefresh` | bool, renew the Grok CLI token when it expires | `false` |
 
-In full-width mode the player sits at the left end of the strip, the limits and stats at the right end.
+In full-width mode the player sits at the left end of the strip, the limits, stats and controls at the right end.
 
 ### Where the AI limits come from
 
@@ -228,7 +232,7 @@ Bar widgets can only live inside the one active bar, which has no bottom slot. S
 
 ```
 manifest.json        service plugin, keepLoaded
-Service.qml          settings from shell.json, IPC, player and stats models, one DockWindow per screen
+Service.qml          settings from shell.json, IPC, player, stats, audio and keyboard models, one DockWindow per screen
 DockWindow.qml       bottom PanelWindow per monitor: dock surface, islands, tooltips, a stand-in bar for Spaces
 Spaces.qml           the Spaces widget, forked: sizes follow the dock height
 QuickfileIsland.qml  QuickFile button pill
@@ -242,6 +246,11 @@ llm_limits.py        runs the usage collectors in parallel, standard library onl
 collectors/grok-usage  Grok usage collector
 SystemPanel.qml      system panel above the stats, forked from System Monitor
 PowerPanel.qml       power profile picker above the battery ring
+ControlsIsland.qml   volume and brightness rings and the keyboard layout emblem
+Audio.qml            output volume from PipeWire, changed through omarchy-audio-output-volume
+Brightness.qml       one monitor's brightness: backlight in sysfs or DDC/CI
+Keyboard.qml         active keyboard layout from Hyprland
+icons/lang-*.svg     layout emblems: eagle, hammer and sickle, tryzub
 SysMetrics.qml/.js   its /proc sampler and two-minute history
 Sparkline.qml        its charts
 discover-sensors.sh  its CPU temperature, GPU and disk discovery
@@ -280,3 +289,5 @@ Spaces by [Tornike Gomareli](https://github.com/tornikegomareli/omarchy-spaces),
 The system panel is the System Monitor plugin by [Harshith Chennupati](https://github.com/Harshith292002/omarchy-system-monitor), MIT, forked into the dock: `SystemPanel.qml`, `SysMetrics.qml`, `SysMetrics.js`, `Sparkline.qml`, `discover-sensors.sh` and their tests. Its notice is in `LICENSE`.
 
 The stat pills follow the approach of the Konostat plugin by konochi, and the player follows the Media Controls + Album Art plugin by crmne. Spaces Dock has its own implementation of both and does not need any of these plugins installed.
+
+Choosing which keyboard to read and switch follows Omarchy's keyboard layout widget (MIT). The layout emblems were drawn for Spaces Dock.

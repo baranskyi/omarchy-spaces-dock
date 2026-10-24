@@ -1614,6 +1614,15 @@ Panel {
             ToggleSetting { visible: root.cfg.showStats; label: "Fans"; key: "statFans" }
             ToggleSetting { visible: root.cfg.showStats; label: "Temperature"; description: "CPU package"; key: "statTemperature" }
             ToggleSetting { visible: root.cfg.showStats; label: "Battery"; description: "Hidden on computers without a battery"; key: "statBattery" }
+
+            PanelSeparator { foreground: root.fg }
+
+            // ---- Controls
+            SectionTitle { text: "CONTROLS" }
+
+            ToggleSetting { label: "Volume"; description: "Scroll to change, click to mute"; key: "showVolume" }
+            ToggleSetting { label: "Brightness"; description: "Per monitor: backlight or DDC/CI. Scroll to change"; key: "showBrightness" }
+            ToggleSetting { label: "Keyboard layout"; description: "Eagle, hammer and sickle or tryzub. Click to switch"; key: "showLanguage" }
           }
 
           PanelSeparator { foreground: root.fg }

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Ukrainian tryzub, simplified for small sizes -->
+  <g fill="#ffffff" stroke="#ffffff" stroke-linejoin="round">
+    <!-- outer prongs curving into the base -->
+    <path fill="none" stroke-width="2.3" d="M4.3 3.6 L4.3 12.6 C4.3 16.8 7.4 19.2 12 19.2 C16.6 19.2 19.7 16.8 19.7 12.6 L19.7 3.6"/>
+    <!-- inner arms rising from the base into the outer prongs -->
+    <path fill="none" stroke-width="1.9" d="M12 16.4 C9.2 16.4 7.6 14.8 7.6 12.4 C7.6 10.4 6.6 9.2 4.6 8.6"/>
+    <path fill="none" stroke-width="1.9" d="M12 16.4 C14.8 16.4 16.4 14.8 16.4 12.4 C16.4 10.4 17.4 9.2 19.4 8.6"/>
+    <!-- central shaft -->
+    <path fill="none" stroke-width="2" d="M12 6 L12 19"/>
+    <!-- spearhead and prong tips -->
+    <path stroke="none" d="M12 0.8 L14 4.6 L12 7.6 L10 4.6 Z"/>
+    <path stroke="none" d="M3.2 4.2 L4.3 1 L5.4 4.2 Z M18.6 4.2 L19.7 1 L20.8 4.2 Z"/>
+    <!-- foot below the base -->
+    <path stroke="none" d="M12 17.8 L13.7 20.6 L12 23.4 L10.3 20.6 Z"/>
+  </g>
+</svg>

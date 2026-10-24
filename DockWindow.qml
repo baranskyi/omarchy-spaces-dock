@@ -53,6 +53,7 @@ PanelWindow {
     Region { item: playerIsland }
     Region { item: limitsIsland }
     Region { item: statsIsland }
+    Region { item: controlsIsland }
   }
 
   // ------------------------------------------------------------ stand-in bar
@@ -117,10 +118,10 @@ PanelWindow {
 
   // The workspace pill (dockSurface) is always centered. The other pills sit
   // beside it in cfg.islandOrder and can be dragged to a new place.
-  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland })
+  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland, controls: controlsIsland })
   readonly property var islandX: Model.islandLayout(
     cfg.islandOrder,
-    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width },
+    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width, controls: controlsIsland.width },
     { x: dockSurface.x, width: dockSurface.width },
     islandGap, full, width)
 
@@ -243,7 +244,7 @@ PanelWindow {
     }
   }
 
-  // Player, AI limits and system stats: separate pills beside the centered
+  // Player, AI limits, system stats and controls: separate pills beside the centered
   // dock (or at the ends of the strip in full-width mode), placed by islandX.
   QuickfileIsland {
     id: quickfileIsland
@@ -303,10 +304,28 @@ PanelWindow {
     dock: dockWindow
   }
 
+  ControlsIsland {
+    id: controlsIsland
+    anchors.bottom: parent.bottom
+    height: parent.height
+    x: dockWindow.islandPos("controls")
+    z: dockWindow.draggingId === "controls" ? 10 : 0
+    Behavior on x { enabled: dockWindow.draggingId !== "controls" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
+    radius: dockWindow.surfaceRadius
+    flat: dockWindow.full
+    audio: dockWindow.service.audio
+    keyboard: dockWindow.service.keyboard
+    screenName: dockWindow.screenName
+    active: dockWindow.visible
+    spaces: spaces
+    dock: dockWindow
+  }
+
   IslandDrag { island: quickfileIsland; islandId: "quickfile" }
   IslandDrag { island: playerIsland; islandId: "player" }
   IslandDrag { island: limitsIsland; islandId: "limits" }
   IslandDrag { island: statsIsland; islandId: "stats" }
+  IslandDrag { island: controlsIsland; islandId: "controls" }
 
   // CPU, memory, network and disk dashboard above the stats island.
   SystemPanel {

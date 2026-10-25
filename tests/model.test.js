@@ -518,13 +518,15 @@ test("llm_limits.py reports a missing collector without crashing", () => {
 })
 
 test("normalizeIslandOrder keeps every pill once and restores missing ones", () => {
-  const all = ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]
+  const all = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
   assert.deepStrictEqual(M.resolveSettings({}).islandOrder, all)
-  assert.deepStrictEqual(M.normalizeIslandOrder(["awake", "controls", "stats", "spaces", "player", "limits", "quickfile"]), ["awake", "controls", "stats", "spaces", "player", "limits", "quickfile"])
+  assert.deepStrictEqual(M.normalizeIslandOrder(["controls", "stats", "spaces", "player", "limits", "quickfile"]), ["controls", "stats", "spaces", "player", "limits", "quickfile"])
+  // "awake" was briefly a pill of its own; a saved order that has it drops it.
+  assert.deepStrictEqual(M.normalizeIslandOrder(["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]), all)
   // An order saved before the QuickFile pill existed gets it back at its default slot.
-  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats", "controls", "awake"]), all)
+  assert.deepStrictEqual(M.normalizeIslandOrder(["player", "spaces", "limits", "stats", "controls"]), all)
   const fixed = M.normalizeIslandOrder(["stats", "bogus", "stats", "spaces"])
-  assert.deepStrictEqual(fixed.slice().sort(), ["awake", "controls", "limits", "player", "quickfile", "spaces", "stats"])
+  assert.deepStrictEqual(fixed.slice().sort(), ["controls", "limits", "player", "quickfile", "spaces", "stats"])
   assert.strictEqual(fixed.indexOf("stats"), fixed.lastIndexOf("stats"))
   assert.deepStrictEqual(M.normalizeIslandOrder("nope"), all)
 })
@@ -708,10 +710,10 @@ test("controls: settings, island order, volume and brightness glyphs, wheel step
   assert.strictEqual(cfg.showBrightness, true)
   assert.strictEqual(cfg.showLanguage, true)
   assert.strictEqual(M.resolveSettings({ showVolume: false }).showVolume, false)
-  assert.deepStrictEqual(cfg.islandOrder, ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"])
-  // An order saved before the controls and Stay Awake pills existed gets them at the right end.
+  assert.deepStrictEqual(cfg.islandOrder, ["quickfile", "player", "spaces", "limits", "stats", "controls"])
+  // An order saved before the controls pill existed gets it at the right end.
   assert.deepStrictEqual(M.normalizeIslandOrder(["quickfile", "player", "limits", "spaces", "stats"]),
-    ["quickfile", "player", "limits", "spaces", "stats", "controls", "awake"])
+    ["quickfile", "player", "limits", "spaces", "stats", "controls"])
   const cp = n => String.fromCodePoint(n)
   assert.strictEqual(M.volumeGlyph(0.88, false), cp(0xf057e))
   assert.strictEqual(M.volumeGlyph(0.5, false), cp(0xf0580))

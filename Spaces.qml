@@ -1806,17 +1806,7 @@ Panel {
             ToggleSetting { label: "Volume"; description: "Scroll to change, click to mute"; key: "showVolume" }
             ToggleSetting { label: "Brightness"; description: "Per monitor: backlight or DDC/CI. Scroll to change"; key: "showBrightness" }
             ToggleSetting { label: "Keyboard layout"; description: "Eagle, hammer and sickle or tryzub. Click to switch"; key: "showLanguage" }
-
-            PanelSeparator { foreground: root.fg }
-
-            // ---- Stay Awake
-            SectionTitle { text: "STAY AWAKE" }
-
-            ToggleSetting {
-              label: "Stay Awake button"
-              description: "Screens on, or screens off without locking or sleep"
-              key: "showAwake"
-            }
+            ToggleSetting { label: "Stay Awake"; description: "Screens on, or screens off without locking or sleep"; key: "showAwake" }
           }
 
           PanelSeparator { foreground: root.fg }

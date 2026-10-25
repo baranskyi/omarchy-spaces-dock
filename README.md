@@ -20,7 +20,7 @@ Four islands sit beside the dock as separate pills:
 - **AI limits, between the dock and the stats:** two concentric rings each for Claude, OpenAI (Codex) and Grok, in the providers' colours, with the provider's logo in the middle. The outer ring is the 5-hour session window, the inner ring the weekly window. Hover a pair for exact percentages and reset times, click to refresh. Logos come from the installed Claude, ChatGPT and Grok Bot apps; without them a letter stands in.
 - **System stats, on the right:** CPU, GPU, memory, storage, network, fans, CPU temperature and battery, like the Konostat plugin. CPU, memory, temperature and battery are on by default; the battery only appears on computers that have one. Hover a value for details, click it for the system panel, right-click it to open btop. Click the battery to switch the power profile.
 - **Controls, at the right end:** a volume ring, a brightness ring for the monitor the dock is on, and the keyboard layout as an emblem: an American eagle for English, a hammer and sickle for Russian, a tryzub for Ukrainian, and a short code for any other layout. Scroll a ring to change it. Click the volume to mute it and right-click it for Omarchy's audio panel. Click the emblem for the next layout, or scroll over it.
-- **Stay Awake, after the controls:** one ring that keeps the computer awake. Click it to pick a mode, right-click it to turn Stay Awake on or off in the last mode:
+- **Stay Awake, the last ring of the controls:** keeps the computer awake. Click it to pick a mode, right-click it to turn Stay Awake on or off in the last mode:
   - **Screens on:** no screensaver, no lock, no screen off, no sleep. A cup in a filled ring.
   - **Screens off:** the screens go dark after the idle time at which Omarchy would lock (5 minutes by default) and come back on input, without locking; the computer does not sleep. A dark monitor in a filled ring.
   - **Normal:** Omarchy's idle as usual: screensaver, then lock and screen off. An empty cup.
@@ -43,7 +43,7 @@ Clicking the battery opens a power profile picker above it: Performance, Balance
 
 The system panel opens above the stats on click. It is the System Monitor panel: host, uptime and load, CPU, memory and temperature cards, a two-minute CPU and memory chart, per-core load, network and disk activity, and disk and swap capacity. Its buttons open the dock settings and btop.
 
-Drag the QuickFile, player, AI limits, stats, controls and Stay Awake pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
+Drag the QuickFile, player, AI limits, stats and controls pills to reorder them, on either side of the workspace pill. The workspace pill always stays centered, and the order is saved.
 
 The dock adds its own settings on top: height, alignment, which monitors, a bottom margin, whether windows make room for it, and hiding together with the bar.
 
@@ -122,7 +122,7 @@ Dock settings:
 | `bottomMargin` | 0 to 64 px | 0 |
 | `reserveSpace` | `true` (windows stop above the dock), `false` (floats over them) | `true` |
 | `hideWithBar` | `true` hides the dock while the bar is toggled off | `true` |
-| `islandOrder` | left-to-right ids: `quickfile`, `player`, `spaces`, `limits`, `stats`, `controls`, `awake` | `["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]` |
+| `islandOrder` | left-to-right ids: `quickfile`, `player`, `spaces`, `limits`, `stats`, `controls` | `["quickfile", "player", "spaces", "limits", "stats", "controls"]` |
 | `showQuickfile` | bool, the QuickFile button pill | `true` |
 
 A named monitor that is not connected falls back to `all`, so unplugging it never leaves you without a dock.
@@ -140,7 +140,7 @@ Player and system stats:
 | `statGpu`, `statStorage`, `statNetwork`, `statFans` | bool | `false` |
 | `showVolume`, `showBrightness` | bool | `true` |
 | `showLanguage` | bool, shown only with more than one keyboard layout | `true` |
-| `showAwake` | bool, the Stay Awake pill | `true` |
+| `showAwake` | bool, the Stay Awake ring in the controls pill | `true` |
 | `stayAwakeMode` | `screens-on`, `screens-off`: the mode Stay Awake turns on, set by its picker | `screens-on` |
 
 AI limits:
@@ -151,7 +151,7 @@ AI limits:
 | `limitClaude`, `limitCodex`, `limitGrok` | bool | `true` |
 | `limitGrokRefresh` | bool, renew the Grok CLI token when it expires | `false` |
 
-In full-width mode the player sits at the left end of the strip, the limits, stats, controls and Stay Awake at the right end.
+In full-width mode the player sits at the left end of the strip, the limits, stats and controls at the right end.
 
 ### Where the AI limits come from
 
@@ -259,11 +259,10 @@ Limits.qml           runs llm_limits.py every five minutes, keeps the last good 
 llm_limits.py        runs the usage collectors in parallel, standard library only
 collectors/grok-usage  Grok usage collector
 SystemPanel.qml      system panel above the stats, forked from System Monitor
-RingPicker.qml       vertical ring picker above a pill: power profiles, Stay Awake modes
+RingPicker.qml       vertical ring picker above a ring: power profiles, Stay Awake modes
 PowerProfiles.qml    power profiles through omarchy-powerprofiles-list and -set
-AwakeIsland.qml      Stay Awake pill
 Awake.qml            Stay Awake: Omarchy's flag, a sleep inhibitor, screens off on idle
-ControlsIsland.qml   volume and brightness rings and the keyboard layout emblem
+ControlsIsland.qml   volume and brightness rings, the keyboard layout emblem, the Stay Awake ring
 Audio.qml            output volume from PipeWire, changed through omarchy-audio-output-volume
 Brightness.qml       one monitor's brightness: backlight in sysfs or DDC/CI
 Keyboard.qml         active keyboard layout from Hyprland

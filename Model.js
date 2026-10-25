@@ -38,7 +38,7 @@ var DEFAULTS = {
   showBrightness: true,       // per monitor; hidden where it cannot be read
   showLanguage: true,         // only with more than one keyboard layout
 
-  // Stay Awake pill. The mode it turns on: "screens-on" (nothing idles) or
+  // Stay Awake ring in the controls pill. The mode it turns on: "screens-on" (nothing idles) or
   // "screens-off" (screens go dark, nothing locks or sleeps). Turning it on or
   // off is Omarchy's own stay-awake flag.
   showAwake: true,
@@ -46,7 +46,7 @@ var DEFAULTS = {
 
   // Left-to-right order of the pills. "spaces" (the workspace pill) always
   // stays centered; the others sit beside it and can be dragged around.
-  islandOrder: ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"],
+  islandOrder: ["quickfile", "player", "spaces", "limits", "stats", "controls"],
 
   // QuickFile button pill: opens the QuickFile plugin, or offers to install it
   showQuickfile: true,
@@ -378,7 +378,7 @@ function awakeMode(stayAwake, setting) {
   return setting === "screens-off" ? "screens-off" : "screens-on"
 }
 
-// The pill's glyph: a cup while nothing idles, a dark monitor while screens
+// The ring's glyph: a cup while nothing idles, a dark monitor while screens
 // may go off, an empty cup when Stay Awake is off.
 function awakeGlyph(mode) {
   if (mode === "screens-on") return String.fromCodePoint(0xf0176)
@@ -760,7 +760,7 @@ function statDetail(key, state) {
 
 // ------------------------------------------------------------ pill order
 
-var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats", "controls", "awake"]
+var ISLANDS = ["quickfile", "player", "spaces", "limits", "stats", "controls"]
 
 // A valid order: every known pill exactly once. Unknown ids are dropped and
 // missing ones go back to their default slot.

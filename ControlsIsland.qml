@@ -5,14 +5,16 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// Controls island: a volume ring, a brightness ring for this monitor and the
-// keyboard layout as an emblem (eagle, hammer and sickle, tryzub). Scroll a
-// ring to change it; click volume to mute and right-click it for Omarchy's
-// audio panel; click the emblem for the next layout. Rings use the dock's
-// text colour like the system stats.
+// Controls island: a volume ring, a brightness ring for this monitor, the
+// keyboard layout as an emblem (eagle, hammer and sickle, tryzub) and the
+// Stay Awake ring. Scroll a ring to change it; click volume to mute and
+// right-click it for Omarchy's audio panel; click the emblem for the next
+// layout; click Stay Awake for its mode picker and right-click it to turn it
+// on or off. Rings use the dock's text colour like the system stats.
 BorderSurface {
   id: island
 
+  required property var service
   required property var audio
   required property var keyboard
   required property var spaces
@@ -20,16 +22,22 @@ BorderSurface {
   property string screenName: ""
   property bool active: true
   property bool flat: false
+  // Stay Awake's mode picker, and the ring it opens above.
+  property var awakePicker: null
+  property Item awakeItem: null
 
   readonly property var cfg: spaces.cfg
   readonly property var dm: spaces.dm
   readonly property color fg: spaces.fg
+  readonly property var awake: service.awake
+  readonly property bool awakeOn: awake.mode !== "normal"
 
   readonly property var items: {
     var list = []
     if (cfg.showVolume && audio.available) list.push("volume")
     if (cfg.showBrightness && brightness.available) list.push("brightness")
     if (cfg.showLanguage && keyboard.available) list.push("language")
+    if (cfg.showAwake) list.push("awake")
     return list
   }
   readonly property bool shown: items.length > 0
@@ -60,7 +68,22 @@ BorderSurface {
       return "Brightness · " + percentText(brightness.percent)
         + "\n" + island.screenName + (brightness.internal ? " · built-in display" : " · DDC/CI")
         + "\nScroll: brightness"
+    if (key === "awake") return awakeTooltip()
     return island.keyboard.language.label + "\nClick: next layout · Scroll: switch layout"
+  }
+
+  function awakeTooltip() {
+    var idle = island.service.idleTimeouts
+    var hint = "\nClick: choose mode · Right-click: turn " + (island.awakeOn ? "off" : "on")
+    if (island.awake.mode === "screens-on")
+      return "Stay Awake · Screens on\nNo screensaver, lock or sleep" + hint
+    if (island.awake.mode === "screens-off")
+      return "Stay Awake · Screens off\nScreens go dark after " + Model.formatSeconds(island.awake.screenOffSeconds)
+        + " idle, without locking. No sleep" + hint
+    var parts = []
+    if (idle.screensaver > 0) parts.push("screensaver after " + Model.formatSeconds(idle.screensaver))
+    if (idle.lock > 0) parts.push("lock after " + Model.formatSeconds(idle.lock))
+    return "Stay Awake · Off\n" + (parts.length ? parts.join(", ").replace(/^s/, "S") : "Normal idle") + hint
   }
 
   Row {
@@ -77,7 +100,11 @@ BorderSurface {
         required property string modelData
         readonly property bool tooltipHovered: controlMouse.containsMouse
         readonly property bool isLanguage: modelData === "language"
+        readonly property bool isAwake: modelData === "awake"
         property real wheelCarry: 0
+
+        Component.onCompleted: if (control.isAwake) island.awakeItem = control
+        Component.onDestruction: if (island.awakeItem === control) island.awakeItem = null
 
         width: island.ringSize
         height: island.ringSize
@@ -87,14 +114,17 @@ BorderSurface {
         StatRing {
           anchors.fill: parent
           fraction: control.modelData === "volume" ? Math.min(1, island.audio.volume)
-            : control.modelData === "brightness" ? brightness.percent / 100 : -1
+            : control.modelData === "brightness" ? brightness.percent / 100
+            : control.isAwake && island.awakeOn ? 1 : -1
           color: island.fg
           trackColor: Util.alpha(island.fg, 0.12)
+          discColor: control.isAwake && island.awakeOn ? Util.alpha(island.fg, 0.16) : "transparent"
           glyph: control.modelData === "volume" ? Model.volumeGlyph(island.audio.volume, island.audio.muted)
-            : control.modelData === "brightness" ? Model.brightnessGlyph(brightness.percent) : ""
+            : control.modelData === "brightness" ? Model.brightnessGlyph(brightness.percent)
+            : control.isAwake ? Model.awakeGlyph(island.awake.mode) : ""
           glyphColor: island.fg
           fontFamily: island.spaces.fontFamily
-          dim: control.modelData === "volume" && island.audio.muted
+          dim: (control.modelData === "volume" && island.audio.muted) || (control.isAwake && !island.awakeOn)
         }
 
         // Layout emblem, tinted with the dock's text colour.
@@ -141,6 +171,7 @@ BorderSurface {
             island.dock.hideTooltip(control)
             if (control.modelData === "volume") island.audio.toggleMute()
             else if (control.isLanguage) island.keyboard.cycle(1)
+            else if (control.isAwake && island.awakePicker) island.awakePicker.toggle()
           }
 
           onClicked: function(mouse) {
@@ -151,9 +182,11 @@ BorderSurface {
             island.dock.hideTooltip(control)
             if (control.modelData === "volume") island.audio.openPanel()
             else if (control.isLanguage) island.keyboard.cycle(-1)
+            else if (control.isAwake) island.service.toggleAwake()
           }
 
           onWheel: function(wheel) {
+            if (control.isAwake) return
             var result = Model.wheelSteps(control.wheelCarry, wheel.angleDelta.y || wheel.angleDelta.x)
             control.wheelCarry = result.rest
             if (result.steps === 0) return

@@ -2,7 +2,7 @@
 
 ## 0.11.0
 
-- A Stay Awake pill after the controls, with a picker of three modes: screens on (no screensaver, lock, screen off or sleep), screens off (the screens go dark at Omarchy's lock timeout without locking and wake on input, the computer does not sleep) and normal (Omarchy's idle as usual). Right-click turns Stay Awake on or off in the last mode. It builds on Omarchy's own stay-awake flag, so the top-bar indicator and `omarchy toggle idle` stay in step, and holds a systemd inhibitor against idle and sleep while it is on. Settings `showAwake` and `stayAwakeMode`; IPC `awake <mode>`.
+- A Stay Awake ring at the end of the controls pill, with a picker of three modes: screens on (no screensaver, lock, screen off or sleep), screens off (the screens go dark at Omarchy's lock timeout without locking and wake on input, the computer does not sleep) and normal (Omarchy's idle as usual). Right-click turns Stay Awake on or off in the last mode. It builds on Omarchy's own stay-awake flag, so the top-bar indicator and `omarchy toggle idle` stay in step, and holds a systemd inhibitor against idle and sleep while it is on. Settings `showAwake` and `stayAwakeMode`; IPC `awake <mode>`.
 - The power profile picker is now a shared `RingPicker`, used by both pickers.
 
 ## 0.10.0

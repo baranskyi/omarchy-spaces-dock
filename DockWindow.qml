@@ -55,7 +55,6 @@ PanelWindow {
     Region { item: limitsIsland }
     Region { item: statsIsland }
     Region { item: controlsIsland }
-    Region { item: awakeIsland }
   }
 
   // ------------------------------------------------------------ stand-in bar
@@ -120,10 +119,10 @@ PanelWindow {
 
   // The workspace pill (dockSurface) is always centered. The other pills sit
   // beside it in cfg.islandOrder and can be dragged to a new place.
-  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland, controls: controlsIsland, awake: awakeIsland })
+  readonly property var islandItems: ({ quickfile: quickfileIsland, player: playerIsland, limits: limitsIsland, stats: statsIsland, controls: controlsIsland })
   readonly property var islandX: Model.islandLayout(
     cfg.islandOrder,
-    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width, controls: controlsIsland.width, awake: awakeIsland.width },
+    { quickfile: quickfileIsland.width, player: playerIsland.width, limits: limitsIsland.width, stats: statsIsland.width, controls: controlsIsland.width },
     { x: dockSurface.x, width: dockSurface.width },
     islandGap, full, width)
 
@@ -246,7 +245,7 @@ PanelWindow {
     }
   }
 
-  // Player, AI limits, system stats, controls and Stay Awake: separate pills beside the centered
+  // Player, AI limits, system stats and controls: separate pills beside the centered
   // dock (or at the ends of the strip in full-width mode), placed by islandX.
   QuickfileIsland {
     id: quickfileIsland
@@ -315,25 +314,12 @@ PanelWindow {
     Behavior on x { enabled: dockWindow.draggingId !== "controls" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
     radius: dockWindow.surfaceRadius
     flat: dockWindow.full
+    service: dockWindow.service
     audio: dockWindow.service.audio
     keyboard: dockWindow.service.keyboard
+    awakePicker: awakePanel
     screenName: dockWindow.screenName
     active: dockWindow.visible
-    spaces: spaces
-    dock: dockWindow
-  }
-
-  AwakeIsland {
-    id: awakeIsland
-    anchors.bottom: parent.bottom
-    height: parent.height
-    x: dockWindow.islandPos("awake")
-    z: dockWindow.draggingId === "awake" ? 10 : 0
-    Behavior on x { enabled: dockWindow.draggingId !== "awake" && spaces.dur > 0; NumberAnimation { duration: spaces.dur; easing.type: Easing.OutCubic } }
-    radius: dockWindow.surfaceRadius
-    flat: dockWindow.full
-    service: dockWindow.service
-    picker: awakePanel
     spaces: spaces
     dock: dockWindow
   }
@@ -343,7 +329,6 @@ PanelWindow {
   IslandDrag { island: limitsIsland; islandId: "limits" }
   IslandDrag { island: statsIsland; islandId: "stats" }
   IslandDrag { island: controlsIsland; islandId: "controls" }
-  IslandDrag { island: awakeIsland; islandId: "awake" }
 
   // CPU, memory, network and disk dashboard above the stats island.
   SystemPanel {
@@ -372,15 +357,15 @@ PanelWindow {
     onChosen: function(key) { dockWindow.service.power.set(key) }
   }
 
-  // Stay Awake mode picker above its pill.
+  // Stay Awake mode picker above its ring in the controls pill.
   RingPicker {
     id: awakePanel
     moduleName: "io.github.baranskyi.spaces-dock.awake"
     bar: dockBar
-    anchor: awakeIsland.ringItem
+    anchor: controlsIsland.awakeItem || controlsIsland
     bottomMargin: dockWindow.cfg.bottomMargin
-    ringSize: awakeIsland.ringSize
-    active: dockWindow.visible && awakeIsland.shown
+    ringSize: controlsIsland.ringSize
+    active: dockWindow.visible && controlsIsland.shown && controlsIsland.awakeItem !== null
     options: Model.awakeOptions()
     current: dockWindow.service.awake.mode
     fallbackCaption: "Stay Awake"

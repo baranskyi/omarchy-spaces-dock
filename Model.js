@@ -1010,11 +1010,53 @@ function normalizeAddress(address) {
   return String(address || "").toLowerCase().replace(/^0x/, "")
 }
 
+// ------------------------------------------------------------ monitor blocks
+
+// Omarchy gives every monitor workspaces 1-10 of its own
+// (default/hypr/monitor-workspaces.lua). Hyprland numbers them in a block of
+// ten per monitor, 1-10, 11-20 and so on, Super + 3 goes to the third one of
+// the focused monitor's block, and a state file maps each connector to its
+// block. The dock numbers each monitor's workspaces 1-10 the same way, like
+// Omarchy's own bar. Without the file (an Omarchy before per-monitor
+// workspaces) blocks are off and workspaces keep their Hyprland numbers.
+var WORKSPACE_SLOTS = 10
+
+function workspaceBlock(id) {
+  return Math.floor((id - 1) / WORKSPACE_SLOTS)
+}
+
+function workspaceSlot(id) {
+  return (id - 1) % WORKSPACE_SLOTS + 1
+}
+
+// Connector -> block from ~/.local/state/omarchy/monitors/workspaces, one
+// "block<TAB>connector<TAB>identity" line per monitor.
+function parseWorkspaceBlocks(text) {
+  var blocks = ({})
+  var lines = String(text || "").split("\n")
+  for (var i = 0; i < lines.length; i++) {
+    var fields = lines[i].split("\t")
+    if (fields.length >= 3 && fields[1] !== "" && /^[0-9]+$/.test(fields[0])) blocks[fields[1]] = parseInt(fields[0], 10)
+  }
+  return blocks
+}
+
+// The block of the monitor a dock is on, or -1 with blocks off. Until the
+// file names the monitor, the block of the workspace it shows, as Omarchy's
+// bar does.
+function monitorBlock(blocks, monitorName, activeId) {
+  if (!blocks || Object.keys(blocks).length === 0) return -1
+  if (Object.prototype.hasOwnProperty.call(blocks, monitorName)) return blocks[monitorName]
+  return activeId > 0 ? workspaceBlock(activeId) : 0
+}
+
 // Workspace ids to render. `occupied` maps id -> window count for every
 // normal (positive id) workspace Hyprland knows about. `activeIds` are
 // workspaces that must stay visible even when empty (focused / on-screen).
 // `persistentIds` are always shown unless hideEmpty (see dockPersistentIds).
-function workspaceIds(occupied, activeIds, persistentIds, hideEmpty) {
+// With a monitor `block` (>= 0) the monitor's own workspaces come first and
+// visitors from another block after them, like Omarchy's bar.
+function workspaceIds(occupied, activeIds, persistentIds, hideEmpty, block) {
   var ids = []
   function add(id) {
     if (id > 0 && ids.indexOf(id) === -1) ids.push(id)
@@ -1027,7 +1069,15 @@ function workspaceIds(occupied, activeIds, persistentIds, hideEmpty) {
   }
   for (var a = 0; a < activeIds.length; a++) add(activeIds[a])
 
-  ids.sort(function(l, r) { return l - r })
+  var own = block >= 0
+  ids.sort(function(l, r) {
+    if (own) {
+      var lv = workspaceBlock(l) === block ? 0 : 1
+      var rv = workspaceBlock(r) === block ? 0 : 1
+      if (lv !== rv) return lv - rv
+    }
+    return l - r
+  })
   return ids
 }
 
@@ -1035,8 +1085,13 @@ function workspaceIds(occupied, activeIds, persistentIds, hideEmpty) {
 // shows only on the monitor it belongs to, so it appears on exactly one dock:
 // `monitorOf` maps id -> output name (where the workspace is now, else where
 // its workspace rule sends it), and ids with no monitor go to `fallback`.
-function dockPersistentIds(count, perMonitor, monitorOf, here, fallback) {
+// With a monitor `block` (>= 0) they are the first `count` of its own block.
+function dockPersistentIds(count, perMonitor, monitorOf, here, fallback, block) {
   var ids = []
+  if (block >= 0) {
+    for (var slot = 1; slot <= Math.min(count, WORKSPACE_SLOTS); slot++) ids.push(block * WORKSPACE_SLOTS + slot)
+    return ids
+  }
   for (var id = 1; id <= count; id++) {
     var owner = (monitorOf && monitorOf[id]) || fallback || here
     if (!perMonitor || owner === here) ids.push(id)
@@ -1103,11 +1158,14 @@ function screenAt(screens, x, y) {
   return best
 }
 
-// Label text for a workspace pill.
-function workspaceLabel(id, focused, style) {
+// Label text for a workspace pill. With `slots` (monitor blocks on) it is the
+// workspace's place in its monitor's block, 1-10; the tenth reads "0", the key
+// that reaches it.
+function workspaceLabel(id, focused, style, slots) {
   if (style === "none") return ""
   if (style === "glyph" && focused) return "󱓻"
-  return id === 10 ? "0" : String(id)
+  var n = slots ? workspaceSlot(id) : id
+  return n === 10 ? "0" : String(n)
 }
 
 // Stable key identifying "the same app" across windows.
@@ -1375,6 +1433,8 @@ if (typeof module !== "undefined") {
     agentStates: agentStates, parsePids: parsePids,
     previewWidth: previewWidth, monitorArea: monitorArea, previewLayout: previewLayout, durationFor: durationFor,
     workspaceIds: workspaceIds, workspaceLabel: workspaceLabel, appKey: appKey,
+    WORKSPACE_SLOTS: WORKSPACE_SLOTS, workspaceBlock: workspaceBlock, workspaceSlot: workspaceSlot,
+    parseWorkspaceBlocks: parseWorkspaceBlocks, monitorBlock: monitorBlock,
     dockPersistentIds: dockPersistentIds, monitorMatching: monitorMatching, workspaceHomes: workspaceHomes, screenAt: screenAt,
     sortWindows: sortWindows, iconItems: iconItems, truncate: truncate,
     focusedLabel: focusedLabel, webAppHost: webAppHost, appIdCandidates: appIdCandidates, iconPathScore: iconPathScore,

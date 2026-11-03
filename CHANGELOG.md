@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- Follow Omarchy's per-monitor workspaces. Since Omarchy gave every monitor workspaces 1-10 of its own (numbered 1-10, 11-20 and so on in Hyprland), the dock showed Hyprland's numbers, so Super + 1 on a second monitor lit up "11". Each dock now numbers its monitor's workspaces 1-10 like Omarchy's bar, clicks go through Omarchy's own focus, always-shown workspaces come from the monitor's block, and visitors from an unplugged monitor are listed last.
+- The workspace preview card is placed clear of the dock again: newer Omarchy reads the bar's thickness, which the dock did not pass on.
+
 ## 0.11.0
 
 - A Stay Awake ring at the end of the controls pill, with a picker of three modes: screens on (no screensaver, lock, screen off or sleep), screens off (the screens go dark at Omarchy's lock timeout without locking and wake on input, the computer does not sleep) and normal (Omarchy's idle as usual). Right-click turns Stay Awake on or off in the last mode. It builds on Omarchy's own stay-awake flag, so the top-bar indicator and `omarchy toggle idle` stay in step, and holds a systemd inhibitor against idle and sleep while it is on. Settings `showAwake` and `stayAwakeMode`; IPC `awake <mode>`.

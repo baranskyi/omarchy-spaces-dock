@@ -151,6 +151,23 @@ Item {
     }
   }
 
+  // Omarchy's per-monitor workspace blocks, connector -> block, from the state
+  // file Hyprland's config keeps (see Model.parseWorkspaceBlocks). Empty on an
+  // Omarchy without per-monitor workspaces.
+  property var workspaceBlocks: ({})
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitors/workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      var blocks = Model.parseWorkspaceBlocks(text())
+      if (JSON.stringify(blocks) !== JSON.stringify(root.workspaceBlocks)) root.workspaceBlocks = blocks
+    }
+    onLoadFailed: function(error) { root.workspaceBlocks = ({}) }
+  }
+
   // A workspace pill being dragged to another monitor: { id, from, to } with
   // output names, or null. Shared so the dock under the pointer can show
   // where the workspace will land.

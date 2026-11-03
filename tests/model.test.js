@@ -794,4 +794,36 @@ test("stay awake: modes, glyphs, picker options and Omarchy's idle timeouts", ()
   assert.strictEqual(M.formatSeconds(45), "45 s")
 })
 
+test("per-monitor workspace blocks: slots, labels, order and always-shown ids", () => {
+  assert.strictEqual(M.workspaceBlock(1), 0)
+  assert.strictEqual(M.workspaceBlock(10), 0)
+  assert.strictEqual(M.workspaceBlock(11), 1)
+  assert.strictEqual(M.workspaceSlot(11), 1)
+  assert.strictEqual(M.workspaceSlot(18), 8)
+  assert.strictEqual(M.workspaceSlot(20), 10)
+  const blocks = M.parseWorkspaceBlocks("0\teDP-1\tSamsung Display Corp. 0x4165\n1\tHDMI-A-1\tSamsung Electric Company Odyssey G60SD HNBY800149\n\nbad line\n")
+  assert.deepStrictEqual(blocks, { "eDP-1": 0, "HDMI-A-1": 1 })
+  assert.deepStrictEqual(M.parseWorkspaceBlocks(""), {})
+  assert.strictEqual(M.monitorBlock(blocks, "HDMI-A-1", 13), 1)
+  assert.strictEqual(M.monitorBlock(blocks, "DP-3", 23), 2)
+  assert.strictEqual(M.monitorBlock(blocks, "DP-3", -1), 0)
+  assert.strictEqual(M.monitorBlock({}, "HDMI-A-1", 13), -1)
+  // Pills read the place in the monitor's block; the tenth reads 0.
+  assert.strictEqual(M.workspaceLabel(11, false, "number", true), "1")
+  assert.strictEqual(M.workspaceLabel(18, false, "number", true), "8")
+  assert.strictEqual(M.workspaceLabel(20, false, "number", true), "0")
+  assert.strictEqual(M.workspaceLabel(10, false, "number", true), "0")
+  assert.strictEqual(M.workspaceLabel(13, false, "number", false), "13")
+  assert.strictEqual(M.workspaceLabel(13, true, "glyph", true), "󱓻")
+  // Own block first, visitors after; without a block, plain number order.
+  const occupied = { 11: 2, 3: 1, 13: 1, 18: 1 }
+  assert.deepStrictEqual(M.workspaceIds(occupied, [13], [], false, 1), [11, 13, 18, 3])
+  assert.deepStrictEqual(M.workspaceIds(occupied, [13], [], false, -1), [3, 11, 13, 18])
+  assert.deepStrictEqual(M.workspaceIds(occupied, [13], [], false), [3, 11, 13, 18])
+  // Always-shown workspaces are the first of the monitor's own block.
+  assert.deepStrictEqual(M.dockPersistentIds(3, true, {}, "HDMI-A-1", "eDP-1", 1), [11, 12, 13])
+  assert.deepStrictEqual(M.dockPersistentIds(12, true, {}, "HDMI-A-1", "eDP-1", 1).length, 10)
+  assert.deepStrictEqual(M.dockPersistentIds(2, true, { 1: "eDP-1", 2: "HDMI-A-1" }, "HDMI-A-1", "eDP-1", -1), [2])
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

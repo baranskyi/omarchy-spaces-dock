@@ -200,6 +200,8 @@ All Spaces settings are kept, with the same keys. The only change is a wider ico
 
 `perMonitor` lists only the workspaces on the dock's own monitor. The always-shown workspaces then appear on one dock each: the monitor a workspace is on now, else the monitor its Hyprland workspace rule names, else the primary monitor.
 
+On an Omarchy with per-monitor workspaces, where every monitor has workspaces 1-10 of its own and Hyprland numbers them 1-10, 11-20 and so on, each dock numbers its monitor's workspaces 1-10 like Omarchy's bar, the tenth as 0. Clicking one goes there the same way Super + number does, the always-shown workspaces are the first ones of the monitor's own block, and workspaces visiting from an unplugged monitor come after its own. Omarchy keeps the blocks in `~/.local/state/omarchy/monitors/workspaces`; without that file the dock shows Hyprland's numbers as before.
+
 To set a value from a script, edit the entry with `jq`. The shell and the dock both pick the change up on their own. `omarchy bar set` only works for bar widgets, so it cannot set these.
 
 ```bash

@@ -93,6 +93,12 @@ Panel {
     return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
   }
 
+  // This monitor's block of ten in Omarchy's per-monitor workspaces, or -1
+  // when that is off; with it, pills read 1-10 within the block (Model.js).
+  readonly property int block: Model.monitorBlock(root.service ? root.service.workspaceBlocks : ({}), root.screenName,
+    root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id : -1)
+  readonly property bool slotLabels: root.block >= 0
+
   // Workspace focused before the current one, for "click active = go back".
   property int previousWorkspaceId: -1
   property int lastWorkspaceId: -1
@@ -261,17 +267,26 @@ Panel {
 
   readonly property var persistentIds: Model.dockPersistentIds(
     cfg.persistentWorkspaces, cfg.perMonitor && root.monitor !== null, root.workspaceMonitors,
-    root.screenName, root.service ? root.service.primaryScreenName : "")
+    root.screenName, root.service ? root.service.primaryScreenName : "", root.block)
 
   readonly property var workspaceIds: {
     var occupied = ({})
     for (var id in workspaceMap) occupied[id] = workspaceMap[id].windows.length
     var active = root.currentWorkspaceId > 0 ? [root.currentWorkspaceId] : []
-    return Model.workspaceIds(occupied, active, root.persistentIds, cfg.hideEmpty)
+    return Model.workspaceIds(occupied, active, root.persistentIds, cfg.hideEmpty, root.block)
   }
 
+  // A workspace of this monitor's own block goes through Omarchy's
+  // o.workspaces.focus, the same as Super + number, which also opens a missing
+  // one on this monitor; anything else, or an older Omarchy, by id.
   function focusWorkspace(id) {
-    run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
+    var byId = "hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })")
+    if (root.block >= 0 && root.screenName !== "" && Model.workspaceBlock(id) === root.block) {
+      run("hyprctl dispatch " + Util.shellQuote("o.workspaces.focus(" + Model.workspaceSlot(id) + ", \"" + root.screenName + "\")")
+        + " >/dev/null 2>&1 || " + byId)
+      return
+    }
+    run(byId)
   }
 
   function focusWindow(address) {
@@ -698,7 +713,7 @@ Panel {
         }
         readonly property var itemKeys: iconData.items.map(function(item) { return item.key })
         readonly property color textColor: active ? root.activeText() : root.fg
-        readonly property string label: Model.workspaceLabel(workspaceId, active, root.cfg.labelStyle)
+        readonly property string label: Model.workspaceLabel(workspaceId, active, root.cfg.labelStyle, root.slotLabels)
         readonly property real pad: label === "" ? root.sp(3) : root.dm.pad
 
         // Appear animation lives on the delegate: positioner add transitions
@@ -1115,7 +1130,7 @@ Panel {
 
         Text {
           anchors.verticalCenter: parent.verticalCenter
-          text: Model.workspaceLabel(dropSlot.workspaceId, false, "number")
+          text: Model.workspaceLabel(dropSlot.workspaceId, false, "number", root.slotLabels)
           color: root.fg
           font.family: root.fontFamily
           font.pixelSize: root.labelPx
@@ -1193,6 +1208,8 @@ Panel {
   QtObject {
     id: previewBar
     readonly property string position: root.bar ? root.bar.position : "bottom"
+    // PopupCard reads the bar's thickness to keep the card clear of it.
+    readonly property int barSize: root.bar ? root.bar.barSize : 0
     property var activePopout: null
     function requestPopout(owner) {}
     function releasePopout(owner) {}

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import qs.Commons
 import qs.Ui
+import "Model.js" as Model
 
 // Compact now-playing island: cover art, title and artist, and playback
 // buttons. Sizes follow the workspace pills (Spaces.dm) so it matches the dock.
@@ -20,11 +21,11 @@ BorderSurface {
   readonly property color fg: spaces.fg
   readonly property bool shown: cfg.showPlayer && media.hasMedia
   readonly property int inset: Math.max(0, Math.round((height - dm.pillThickness) / 2))
-  // Natural widths, measured apart from the elided Text items they size.
-  readonly property int textWidth: Math.min(Style.space(200), Math.ceil(Math.max(titleMetrics.advanceWidth, artistMetrics.advanceWidth)))
+  // A fixed width of PLAYER_TEXT_CHARS characters in the title font, so the
+  // pill keeps its size from track to track; longer lines end in an ellipsis.
+  readonly property int textWidth: Math.ceil(widthMetrics.advanceWidth)
 
-  TextMetrics { id: titleMetrics; font: titleText.font; text: titleText.text }
-  TextMetrics { id: artistMetrics; font: artistText.font; text: artistText.text }
+  TextMetrics { id: widthMetrics; font: titleText.font; text: "0".repeat(Model.PLAYER_TEXT_CHARS) }
 
   visible: shown
   width: shown ? content.implicitWidth + inset * 2 + spaces.sp(2) : 0
@@ -158,7 +159,7 @@ BorderSurface {
           id: titleText
           width: parent.width
           // Spotify shows before a track is picked: then its name stands in.
-          text: island.media.title || island.media.artist || island.media.identity || "Spotify"
+          text: Model.truncateChars(island.media.title || island.media.artist || island.media.identity || "Spotify", Model.PLAYER_TEXT_CHARS)
           color: island.fg
           elide: Text.ElideRight
           font.family: island.spaces.fontFamily
@@ -170,7 +171,7 @@ BorderSurface {
           id: artistText
           width: parent.width
           visible: text !== ""
-          text: island.media.title ? island.media.artist : ""
+          text: island.media.title ? Model.truncateChars(island.media.artist, Model.PLAYER_TEXT_CHARS) : ""
           color: Util.alpha(island.fg, 0.65)
           elide: Text.ElideRight
           font.family: island.spaces.fontFamily

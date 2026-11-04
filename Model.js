@@ -349,6 +349,18 @@ function statGlyph(key, state, fallback) {
   return fallback
 }
 
+// The player's title and artist lines hold this many characters, and the
+// pill keeps the width of that many, whatever is playing.
+var PLAYER_TEXT_CHARS = 15
+
+// `text` cut to `max` characters, the last one an ellipsis when it is cut.
+// Counts characters, not UTF-16 units, so an emoji is never split.
+function truncateChars(text, max) {
+  var chars = Array.from(String(text || ""))
+  if (chars.length <= max) return chars.join("")
+  return chars.slice(0, Math.max(0, max - 1)).join("").replace(/\s+$/, "") + "\u2026"
+}
+
 // "2h 31m", "45m"; "" without a value.
 function formatMinutes(minutes) {
   if (!isNum(minutes) || minutes < 0) return ""
@@ -1419,6 +1431,7 @@ if (typeof module !== "undefined") {
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
     LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
     POWER_PROFILES: POWER_PROFILES, parsePowerProfiles: parsePowerProfiles,
+    PLAYER_TEXT_CHARS: PLAYER_TEXT_CHARS, truncateChars: truncateChars,
     volumeGlyph: volumeGlyph, brightnessGlyph: brightnessGlyph, isInternalDisplay: isInternalDisplay, wheelSteps: wheelSteps,
     STAY_AWAKE_MODES: STAY_AWAKE_MODES, awakeOptions: awakeOptions, awakeMode: awakeMode, awakeGlyph: awakeGlyph,
     idleTimeouts: idleTimeouts, screenOffSeconds: screenOffSeconds, formatSeconds: formatSeconds,

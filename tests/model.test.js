@@ -826,4 +826,17 @@ test("per-monitor workspace blocks: slots, labels, order and always-shown ids", 
   assert.deepStrictEqual(M.dockPersistentIds(2, true, { 1: "eDP-1", 2: "HDMI-A-1" }, "HDMI-A-1", "eDP-1", -1), [2])
 })
 
+test("player lines hold 15 characters and end in an ellipsis when cut", () => {
+  assert.strictEqual(M.PLAYER_TEXT_CHARS, 15)
+  assert.strictEqual(M.truncateChars("Лететь", 15), "Лететь")
+  assert.strictEqual(M.truncateChars("123456789012345", 15), "123456789012345")
+  assert.strictEqual(M.truncateChars("1234567890123456", 15), "12345678901234…")
+  assert.strictEqual(Array.from(M.truncateChars("Bohemian Rhapsody - Remastered 2011", 15)).length, 15)
+  assert.strictEqual(M.truncateChars("Hello there my friend", 15), "Hello there my…")
+  assert.strictEqual(M.truncateChars("abcdefghijklmn \u{1F3B5}xyz", 15), "abcdefghijklmn…")
+  assert.strictEqual(M.truncateChars("\u{1F3B5}".repeat(20), 15), "\u{1F3B5}".repeat(14) + "…")
+  assert.strictEqual(M.truncateChars("", 15), "")
+  assert.strictEqual(M.truncateChars(null, 15), "")
+})
+
 if (failed) { console.log(failed + " failed"); process.exit(1) }

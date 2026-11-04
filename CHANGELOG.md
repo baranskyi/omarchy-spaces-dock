@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.3
+
+- The player pill keeps one width from track to track: the title and artist lines hold 15 characters, and a longer one is cut with an ellipsis. The tooltip still shows it in full.
+
 ## 0.11.2
 
 - Narrower workspace pills. The icon strip reserved an empty column for the "+N" chip even when there was none, which left an extra gap after the last icon, and the padding is now tighter and lopsided: less after the last icon, which carries its own hover margin, than before the number.

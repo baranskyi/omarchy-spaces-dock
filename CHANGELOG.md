@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.2
+
+- Narrower workspace pills. The icon strip reserved an empty column for the "+N" chip even when there was none, which left an extra gap after the last icon, and the padding is now tighter and lopsided: less after the last icon, which carries its own hover margin, than before the number.
+
 ## 0.11.1
 
 - Follow Omarchy's per-monitor workspaces. Since Omarchy gave every monitor workspaces 1-10 of its own (numbered 1-10, 11-20 and so on in Hyprland), the dock showed Hyprland's numbers, so Super + 1 on a second monitor lit up "11". Each dock now numbers its monitor's workspaces 1-10 like Omarchy's bar, clicks go through Omarchy's own focus, always-shown workspaces come from the monitor's block, and visitors from an unplugged monitor are listed last.

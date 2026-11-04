@@ -715,6 +715,13 @@ Panel {
         readonly property color textColor: active ? root.activeText() : root.fg
         readonly property string label: Model.workspaceLabel(workspaceId, active, root.cfg.labelStyle, root.slotLabels)
         readonly property real pad: label === "" ? root.sp(3) : root.dm.pad
+        // Horizontal pills are tighter than the density padding and lopsided:
+        // each icon already carries its own hover margin, so the end after the
+        // last icon needs less than the start before the number. The end eases
+        // between the two as the icons slide in and out.
+        readonly property real padStart: label === "" ? root.sp(3) : Math.round(root.dm.pad * 0.7)
+        readonly property real iconShare: Math.min(1, iconClip.shownExtent / Math.max(1, root.iconPx))
+        readonly property real padEnd: padStart + (Math.round(root.dm.pad * 0.45) - padStart) * iconShare
 
         // Appear animation lives on the delegate: positioner add transitions
         // can be interrupted and leave items stuck half faded.
@@ -729,7 +736,7 @@ Panel {
 
         width: implicitWidth
         height: implicitHeight
-        implicitWidth: root.vertical ? root.pillThickness : content.implicitWidth + pad * 2
+        implicitWidth: root.vertical ? root.pillThickness : content.implicitWidth + padStart + padEnd
         implicitHeight: root.vertical ? content.implicitHeight + pad * 2 : root.pillThickness
 
         Behavior on implicitWidth { enabled: root.dur > 0; NumberAnimation { duration: root.dur; easing.type: Easing.OutCubic } }
@@ -785,7 +792,10 @@ Panel {
 
         Grid {
           id: content
-          anchors.centerIn: parent
+          anchors.centerIn: root.vertical ? parent : undefined
+          anchors.verticalCenter: root.vertical ? undefined : parent.verticalCenter
+          anchors.left: root.vertical ? undefined : parent.left
+          anchors.leftMargin: pill.padStart
           columns: root.vertical ? 1 : 2
           horizontalItemAlignment: Grid.AlignHCenter
           verticalItemAlignment: Grid.AlignVCenter
@@ -819,7 +829,9 @@ Panel {
 
             Grid {
               id: icons
-              columns: root.vertical ? 1 : Math.max(1, pill.itemKeys.length + 1)
+              // A column for the "+N" chip only while it shows: an empty one
+              // would still add a gap after the last icon.
+              columns: root.vertical ? 1 : Math.max(1, pill.itemKeys.length + (pill.iconData.overflow > 0 ? 1 : 0))
               spacing: root.dm.iconGap
               verticalItemAlignment: Grid.AlignVCenter
               horizontalItemAlignment: Grid.AlignHCenter

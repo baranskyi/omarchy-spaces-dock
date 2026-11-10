@@ -5,7 +5,8 @@ import qs.Ui
 import "Model.js" as Model
 
 // AI limits island, between the dock and the system stats: one pair of rings
-// per provider (outer = 5-hour session, inner = weekly). Hover a pair for
+// per provider (outer = 5-hour session, inner = weekly; for Claude, which has
+// no session window, outer = weekly, inner = Fable weekly). Hover a pair for
 // percentages and reset times, click to refresh, right-click for settings.
 BorderSurface {
   id: island
@@ -70,7 +71,7 @@ BorderSurface {
 
         required property var modelData
         readonly property var record: island.limits.records[modelData.id] || null
-        readonly property var windows: Model.limitWindows(record)
+        readonly property var rings: Model.limitRings(record)
         readonly property bool tooltipHovered: pairMouse.containsMouse
 
         width: island.ringSize
@@ -78,8 +79,8 @@ BorderSurface {
 
         LimitRings {
           anchors.fill: parent
-          sessionPercent: pair.windows.session ? pair.windows.session.percent : -1
-          weeklyPercent: pair.windows.weekly ? pair.windows.weekly.percent : -1
+          outerPercent: pair.rings.outer.window ? pair.rings.outer.window.percent : -1
+          innerPercent: pair.rings.inner.window ? pair.rings.inner.window.percent : -1
           color: pair.modelData.color
           letterColor: island.fg
           trackColor: Util.alpha(island.fg, 0.12)

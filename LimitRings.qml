@@ -1,16 +1,17 @@
 import QtQuick
 import QtQuick.Effects
 
-// Two concentric progress rings for one AI provider: the outer ring is the
-// session (5-hour) window, the inner ring the weekly window. Arcs start at
+// Two concentric progress rings for one AI provider; which limit each shows
+// is Model.limitRings' choice (session and week, or week and Fable week for
+// Claude). Arcs start at
 // twelve o'clock and run clockwise. A window that does not exist draws only
 // its faint track. The provider's logo sits in the middle, cut to a circle;
 // the letter shows until (or unless) the logo loads.
 Canvas {
   id: rings
 
-  property real sessionPercent: -1   // 0..1, or -1 for "no session window"
-  property real weeklyPercent: -1    // 0..1, or -1 for "no weekly window"
+  property real outerPercent: -1     // 0..1, or -1 for "no such limit"
+  property real innerPercent: -1     // 0..1, or -1 for "no such limit"
   property color color: "#d97757"
   property color trackColor: Qt.rgba(0, 0, 0, 0.12)
   property color letterColor: color
@@ -27,8 +28,8 @@ Canvas {
   antialiasing: true
   opacity: stale ? 0.55 : 1
 
-  onSessionPercentChanged: requestPaint()
-  onWeeklyPercentChanged: requestPaint()
+  onOuterPercentChanged: requestPaint()
+  onInnerPercentChanged: requestPaint()
   onColorChanged: requestPaint()
   onTrackColorChanged: requestPaint()
   onWidthChanged: requestPaint()
@@ -57,8 +58,8 @@ Canvas {
     ctx.clearRect(0, 0, width, height)
     var outer = Math.min(width, height) / 2 - rings.stroke / 2
     var inner = outer - rings.stroke - rings.ringGap
-    ring(ctx, outer, rings.sessionPercent)
-    if (inner > rings.stroke / 2) ring(ctx, inner, rings.weeklyPercent)
+    ring(ctx, outer, rings.outerPercent)
+    if (inner > rings.stroke / 2) ring(ctx, inner, rings.innerPercent)
   }
 
   // App icons carry transparent padding (macOS-style rounded squares), so the

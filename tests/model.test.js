@@ -463,6 +463,42 @@ test("limitWindows sorts session, weekly and model-specific windows", () => {
   assert.deepStrictEqual(M.limitWindows(null), { session: null, weekly: null, extras: [] })
 })
 
+test("limitRings: week and Fable week for Claude without a session window", () => {
+  const now = Date.parse("2026-11-10T12:00:00Z")
+  // Claude since it dropped the 5-hour window.
+  const claude = { plan: "Max 20x", status: "", limits: [
+    { label: "Weekly (7-day)", percent: 0.73, resetsAt: "2026-11-11T01:00:00Z" },
+    { label: "Fable Weekly", title: "Fable Weekly", percent: 0.13, resetsAt: "2026-11-11T01:00:00Z" }
+  ] }
+  const r = M.limitRings(claude)
+  assert.deepStrictEqual([r.outer.label, r.outer.window.percent], ["Weekly", 0.73])
+  assert.deepStrictEqual([r.inner.label, r.inner.window.percent], ["Fable", 0.13])
+  assert.deepStrictEqual(r.rest, [])
+  assert.strictEqual(M.limitTooltip(M.LIMIT_PROVIDERS[0], claude, now), [
+    "Claude · Max 20x",
+    "",
+    "Weekly   73%  resets in 13h 0m",
+    "Fable    13%  resets in 13h 0m"
+  ].join("\n"))
+  // With a session window: session outside, week inside, model limits in the tooltip only.
+  const withSession = M.limitRings({ limits: [
+    { label: "Session (5-hour)", percent: 0.04 },
+    { label: "Weekly (7-day)", percent: 0.07 },
+    { label: "Fable Weekly", title: "Fable Weekly", percent: 0.02 }
+  ] })
+  assert.deepStrictEqual([withSession.outer.label, withSession.inner.label], ["Session", "Weekly"])
+  assert.deepStrictEqual(withSession.rest.map(w => w.title), ["Fable Weekly"])
+  // A week only (Grok, OpenAI): the outer ring stays empty as before.
+  const grok = M.limitRings({ limits: [{ label: "Weekly (7-day)", percent: 0.11 }] })
+  assert.strictEqual(grok.outer.window, null)
+  assert.strictEqual(grok.inner.window.percent, 0.11)
+  // Fable only, no overall week: the outer ring is empty, Fable inside.
+  const fableOnly = M.limitRings({ limits: [{ label: "Fable Weekly", title: "Fable Weekly", percent: 0.2 }] })
+  assert.deepStrictEqual([fableOnly.outer.label, fableOnly.outer.window, fableOnly.inner.label], ["Weekly", null, "Fable"])
+  assert.strictEqual(M.limitExtraLabel({ title: "Fable Weekly" }), "Fable")
+  assert.strictEqual(M.limitRings(null).outer.window, null)
+})
+
 test("mergeLimitRecord keeps the last numbers when a refresh comes back empty", () => {
   const prev = { available: true, plan: "pro", status: "", stale: false, updatedAt: "a", limits: [{ label: "Weekly", percent: 0.79 }] }
   const empty = { available: true, plan: "pro", status: "Codex limits unavailable", stale: false, updatedAt: "b", limits: [] }

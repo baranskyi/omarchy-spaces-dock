@@ -887,8 +887,10 @@ function quickfileTooltip(state) {
 
 // ------------------------------------------------------------ AI limits
 
-// One pair of rings per provider: the outer ring is the short session window
-// (5-hour), the inner ring the weekly window. `apps` are desktop entry ids
+// One pair of rings per provider, filled by limitRings: the short session
+// window (5-hour) outside and the week inside, or, for a provider without a
+// session window but with a model-specific limit (Claude now), the week
+// outside and that model's week inside. `apps` are desktop entry ids
 // whose icon becomes the logo in the middle, first one installed wins; the
 // letter stands in when none is. No logo files ship with the plugin.
 // `logoZoom` crops the transparent padding some app icons carry.
@@ -931,6 +933,35 @@ function limitWindows(record) {
     else out.extras.push(w)
   }
   return out
+}
+
+// "Fable" for Claude's "Fable Weekly" window.
+function limitExtraLabel(w) {
+  var title = String((w && (w.title || w.label)) || "")
+  return title.replace(/\s+weekly$/i, "") || title
+}
+
+// What a provider's two rings show: { outer, inner, rest }, where outer and
+// inner are { label, window, empty } (window null when there is no such
+// limit, `empty` saying so in the tooltip) and `rest` holds any further
+// model-specific windows, listed in the tooltip only. With a 5-hour session
+// window the session goes outside and the week inside (OpenAI, Grok). Without
+// one, a model-specific weekly limit takes the inner ring and the overall
+// week moves outside: Claude's weekly limit, then its Fable weekly limit.
+function limitRings(record) {
+  var w = limitWindows(record)
+  if (!w.session && w.extras.length > 0) {
+    return {
+      outer: { label: "Weekly", window: w.weekly, empty: "no weekly limit" },
+      inner: { label: limitExtraLabel(w.extras[0]), window: w.extras[0], empty: "" },
+      rest: w.extras.slice(1)
+    }
+  }
+  return {
+    outer: { label: "Session", window: w.session, empty: "no 5-hour limit" },
+    inner: { label: "Weekly", window: w.weekly, empty: "no weekly limit" },
+    rest: w.extras
+  }
 }
 
 // Keeps the last numbers when a refresh comes back empty, flagged stale.
@@ -979,26 +1010,21 @@ function padLeft(text, width) {
   return s
 }
 
-// Tooltip for one provider's rings, in columns for a monospace font:
+// Tooltip for one provider's rings, outer ring first, in columns for a
+// monospace font:
 //   Claude · Max 20x
 //
-//   Session   5%  resets in 1h 56m
-//   Weekly    7%  resets in 6d 13h
-//   Fable     4%  resets in 6d 13h
+//   Weekly   73%  resets in 6d 13h
+//   Fable    13%  resets in 6d 13h
 //
 //   Sign-in expired
 function limitTooltip(provider, record, nowMs) {
   var name = provider.name + (record && record.plan ? " · " + record.plan : "")
   if (!record) return name + "\n\nReading limits…"
-  var w = limitWindows(record)
-  var rows = [
-    { label: "Session", window: w.session, empty: "no 5-hour limit" },
-    { label: "Weekly", window: w.weekly, empty: "no weekly limit" }
-  ]
-  for (var i = 0; i < w.extras.length; i++) {
-    var title = String(w.extras[i].title || w.extras[i].label || "")
-    rows.push({ label: title.replace(/\s+weekly$/i, "") || title, window: w.extras[i], empty: "" })
-  }
+  var rings = limitRings(record)
+  var rows = [rings.outer, rings.inner]
+  for (var i = 0; i < rings.rest.length; i++)
+    rows.push({ label: limitExtraLabel(rings.rest[i]), window: rings.rest[i], empty: "" })
   var labelWidth = 0
   for (var r = 0; r < rows.length; r++) labelWidth = Math.max(labelWidth, rows[r].label.length)
   var lines = [name, ""]
@@ -1431,6 +1457,7 @@ if (typeof module !== "undefined") {
     statLevel: statLevel, LEVEL_USAGE: LEVEL_USAGE, LEVEL_TEMPERATURE: LEVEL_TEMPERATURE, statFraction: statFraction,
     LEVEL_BATTERY: LEVEL_BATTERY, statAvailable: statAvailable, statGlyph: statGlyph, formatMinutes: formatMinutes,
     POWER_PROFILES: POWER_PROFILES, parsePowerProfiles: parsePowerProfiles,
+    limitRings: limitRings, limitExtraLabel: limitExtraLabel,
     PLAYER_TEXT_CHARS: PLAYER_TEXT_CHARS, truncateChars: truncateChars,
     volumeGlyph: volumeGlyph, brightnessGlyph: brightnessGlyph, isInternalDisplay: isInternalDisplay, wheelSteps: wheelSteps,
     STAY_AWAKE_MODES: STAY_AWAKE_MODES, awakeOptions: awakeOptions, awakeMode: awakeMode, awakeGlyph: awakeGlyph,

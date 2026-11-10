@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.4
+
+- Claude's rings follow its new limits. Claude dropped the 5-hour session window and added a separate Fable weekly limit, so its outer ring now shows the weekly limit and its inner ring the Fable weekly limit, and the tooltip lists the two. A provider with a session window still shows session outside and week inside.
+
 ## 0.11.3
 
 - The player pill keeps one width from track to track: the title and artist lines hold 15 characters, and a longer one is cut with an ellipsis. The tooltip still shows it in full.

@@ -945,23 +945,31 @@ function limitExtraLabel(w) {
 // inner are { label, window, empty } (window null when there is no such
 // limit, `empty` saying so in the tooltip) and `rest` holds any further
 // model-specific windows, listed in the tooltip only. With a 5-hour session
-// window the session goes outside and the week inside (OpenAI, Grok). Without
-// one, a model-specific weekly limit takes the inner ring and the overall
-// week moves outside: Claude's weekly limit, then its Fable weekly limit.
+// window the session goes outside and the week inside (OpenAI). Without one,
+// a model-specific weekly limit takes the inner ring and the overall week
+// moves outside: Claude's weekly limit, then its Fable weekly limit. A
+// provider with a single limit (Grok's week) gets a single ring: `inner` is
+// null and that limit is the outer ring.
 function limitRings(record) {
   var w = limitWindows(record)
+  var rings
   if (!w.session && w.extras.length > 0) {
-    return {
+    rings = {
       outer: { label: "Weekly", window: w.weekly, empty: "no weekly limit" },
       inner: { label: limitExtraLabel(w.extras[0]), window: w.extras[0], empty: "" },
       rest: w.extras.slice(1)
     }
+  } else {
+    rings = {
+      outer: { label: "Session", window: w.session, empty: "no 5-hour limit" },
+      inner: { label: "Weekly", window: w.weekly, empty: "no weekly limit" },
+      rest: w.extras
+    }
   }
-  return {
-    outer: { label: "Session", window: w.session, empty: "no 5-hour limit" },
-    inner: { label: "Weekly", window: w.weekly, empty: "no weekly limit" },
-    rest: w.extras
-  }
+  var shown = (rings.outer.window ? 1 : 0) + (rings.inner.window ? 1 : 0)
+  if (shown === 1 && rings.rest.length === 0)
+    return { outer: rings.outer.window ? rings.outer : rings.inner, inner: null, rest: [] }
+  return rings
 }
 
 // Keeps the last numbers when a refresh comes back empty, flagged stale.
@@ -1022,7 +1030,7 @@ function limitTooltip(provider, record, nowMs) {
   var name = provider.name + (record && record.plan ? " · " + record.plan : "")
   if (!record) return name + "\n\nReading limits…"
   var rings = limitRings(record)
-  var rows = [rings.outer, rings.inner]
+  var rows = rings.inner ? [rings.outer, rings.inner] : [rings.outer]
   for (var i = 0; i < rings.rest.length; i++)
     rows.push({ label: limitExtraLabel(rings.rest[i]), window: rings.rest[i], empty: "" })
   var labelWidth = 0

@@ -12,6 +12,8 @@ Canvas {
 
   property real outerPercent: -1     // 0..1, or -1 for "no such limit"
   property real innerPercent: -1     // 0..1, or -1 for "no such limit"
+  // False for a provider with a single limit: only the outer ring is drawn.
+  property bool showInner: true
   property color color: "#d97757"
   property color trackColor: Qt.rgba(0, 0, 0, 0.12)
   property color letterColor: color
@@ -30,6 +32,7 @@ Canvas {
 
   onOuterPercentChanged: requestPaint()
   onInnerPercentChanged: requestPaint()
+  onShowInnerChanged: requestPaint()
   onColorChanged: requestPaint()
   onTrackColorChanged: requestPaint()
   onWidthChanged: requestPaint()
@@ -59,7 +62,7 @@ Canvas {
     var outer = Math.min(width, height) / 2 - rings.stroke / 2
     var inner = outer - rings.stroke - rings.ringGap
     ring(ctx, outer, rings.outerPercent)
-    if (inner > rings.stroke / 2) ring(ctx, inner, rings.innerPercent)
+    if (rings.showInner && inner > rings.stroke / 2) ring(ctx, inner, rings.innerPercent)
   }
 
   // App icons carry transparent padding (macOS-style rounded squares), so the

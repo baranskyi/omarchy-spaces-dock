@@ -488,13 +488,16 @@ test("limitRings: week and Fable week for Claude without a session window", () =
   ] })
   assert.deepStrictEqual([withSession.outer.label, withSession.inner.label], ["Session", "Weekly"])
   assert.deepStrictEqual(withSession.rest.map(w => w.title), ["Fable Weekly"])
-  // A week only (Grok, OpenAI): the outer ring stays empty as before.
-  const grok = M.limitRings({ limits: [{ label: "Weekly (7-day)", percent: 0.11 }] })
-  assert.strictEqual(grok.outer.window, null)
-  assert.strictEqual(grok.inner.window.percent, 0.11)
-  // Fable only, no overall week: the outer ring is empty, Fable inside.
+  // A single limit (Grok's week) gets a single ring.
+  const grok = M.limitRings({ limits: [{ label: "Weekly (7-day)", title: "Weekly", percent: 0.11 }] })
+  assert.deepStrictEqual([grok.outer.label, grok.outer.window.percent, grok.inner], ["Weekly", 0.11, null])
   const fableOnly = M.limitRings({ limits: [{ label: "Fable Weekly", title: "Fable Weekly", percent: 0.2 }] })
-  assert.deepStrictEqual([fableOnly.outer.label, fableOnly.outer.window, fableOnly.inner.label], ["Weekly", null, "Fable"])
+  assert.deepStrictEqual([fableOnly.outer.label, fableOnly.outer.window.percent, fableOnly.inner], ["Fable", 0.2, null])
+  // OpenAI's 5-hour window and week keep both rings, even at 0%.
+  const codex = M.limitRings({ limits: [{ label: "5h window", percent: 0 }, { label: "Weekly (7-day)", percent: 0.34 }] })
+  assert.deepStrictEqual([codex.outer.label, codex.outer.window.percent, codex.inner.label, codex.inner.window.percent], ["Session", 0, "Weekly", 0.34])
+  // Nothing read yet: both tracks stay.
+  assert.ok(M.limitRings({ limits: [] }).inner !== null)
   assert.strictEqual(M.limitExtraLabel({ title: "Fable Weekly" }), "Fable")
   assert.strictEqual(M.limitRings(null).outer.window, null)
 })
@@ -531,7 +534,7 @@ test("formatResetIn and limitTooltip", () => {
     "Fable      4%  resets in 6d 14h"
   ].join("\n"))
   const grokTip = M.limitTooltip(M.LIMIT_PROVIDERS[2], { plan: "SuperGrok Plus", status: "", limits: [{ label: "Weekly (7-day)", percent: 0.11 }] }, now)
-  assert.strictEqual(grokTip, ["Grok · SuperGrok Plus", "", "Session     —  no 5-hour limit", "Weekly    11%"].join("\n"))
+  assert.strictEqual(grokTip, ["Grok · SuperGrok Plus", "", "Weekly   11%"].join("\n"))
   const expired = M.limitTooltip(M.LIMIT_PROVIDERS[0], { plan: "Max 20x", status: "Sign-in expired", limits: [{ label: "Weekly (7-day)", percent: 0.07 }] }, now)
   assert.ok(expired.endsWith("\n\nSign-in expired"))
   assert.strictEqual(M.limitTooltip(M.LIMIT_PROVIDERS[1], null, now), "OpenAI\n\nReading limits…")

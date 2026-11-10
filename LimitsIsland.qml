@@ -6,7 +6,8 @@ import "Model.js" as Model
 
 // AI limits island, between the dock and the system stats: one pair of rings
 // per provider (outer = 5-hour session, inner = weekly; for Claude, which has
-// no session window, outer = weekly, inner = Fable weekly). Hover a pair for
+// no session window, outer = weekly, inner = Fable weekly; one ring for a
+// provider with a single limit, like Grok's week). Hover a pair for
 // percentages and reset times, click to refresh, right-click for settings.
 BorderSurface {
   id: island
@@ -80,7 +81,8 @@ BorderSurface {
         LimitRings {
           anchors.fill: parent
           outerPercent: pair.rings.outer.window ? pair.rings.outer.window.percent : -1
-          innerPercent: pair.rings.inner.window ? pair.rings.inner.window.percent : -1
+          innerPercent: pair.rings.inner && pair.rings.inner.window ? pair.rings.inner.window.percent : -1
+          showInner: pair.rings.inner !== null
           color: pair.modelData.color
           letterColor: island.fg
           trackColor: Util.alpha(island.fg, 0.12)

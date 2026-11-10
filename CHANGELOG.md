@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.5
+
+- A provider with a single limit gets a single ring. Grok only has a weekly limit, so it no longer shows an empty inner track, and its tooltip lists just the week.
+
 ## 0.11.4
 
 - Claude's rings follow its new limits. Claude dropped the 5-hour session window and added a separate Fable weekly limit, so its outer ring now shows the weekly limit and its inner ring the Fable weekly limit, and the tooltip lists the two. A provider with a session window still shows session outside and week inside.
